@@ -1,11 +1,11 @@
-import { generateSchema } from "@/lib/validations";
+import { convertSchema } from "@/lib/validations";
 import { getGeminiClient } from "@/lib/gemini";
-import { buildGenerationPrompt } from "@/lib/prompts";
+import { buildConvertPrompt } from "@/lib/prompts";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const parsed = generateSchema.safeParse(body);
+    const parsed = convertSchema.safeParse(body);
 
     if (!parsed.success) {
       return new Response(
@@ -14,15 +14,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { analysisResult, topic, keywords, selectedTitle, productName, productAdvantages, requirements, charCountRange } = parsed.data;
+    const { blogContent, format } = parsed.data;
 
     const client = getGeminiClient();
-    const prompt = buildGenerationPrompt(
-      analysisResult,
-      topic,
-      keywords,
-      { selectedTitle, productName, productAdvantages, requirements, charCountRange }
-    );
+    const prompt = buildConvertPrompt(blogContent, format);
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -44,7 +39,7 @@ export async function POST(request: Request) {
           const message =
             error instanceof Error
               ? error.message
-              : "생성 중 오류가 발생했습니다.";
+              : "변환 중 오류가 발생했습니다.";
           controller.enqueue(
             new TextEncoder().encode(`\n\n[오류] ${message}`)
           );

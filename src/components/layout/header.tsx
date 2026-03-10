@@ -15,7 +15,7 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" render={<Link href="/history" />} className="flex items-center gap-1.5">
+          <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/history" />} className="flex items-center gap-1.5">
             <History className="h-4 w-4" />
             <span className="hidden sm:inline">히스토리</span>
           </Button>
