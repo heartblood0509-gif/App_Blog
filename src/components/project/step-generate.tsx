@@ -65,7 +65,10 @@ const CHAR_RANGE_LABELS: Record<string, string> = {
   reference: "레퍼런스 글자수",
 };
 
-const countChars = (text: string) => text.replace(/\s/g, "").length;
+const countChars = (text: string) =>
+  text
+    .replace(/\[이미지:[^\]]*\]/g, "")
+    .replace(/\s/g, "").length;
 
 export function StepGenerate({
   analysisResult,

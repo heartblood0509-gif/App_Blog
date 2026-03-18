@@ -106,8 +106,9 @@ export function ContentPreview({ content, isLoading }: ContentPreviewProps) {
       .replace(/\n{3,}/g, "\n\n");
 
   const plainText = content ? stripMarkdown(content) : "";
-  const charCountWithSpaces = plainText.length;
-  const charCountNoSpaces = plainText.replace(/\s/g, "").length;
+  const textWithoutImageTags = plainText.replace(/\[이미지:[^\]]*\]/g, "");
+  const charCountWithSpaces = textWithoutImageTags.length;
+  const charCountNoSpaces = textWithoutImageTags.replace(/\s/g, "").length;
 
   if (isLoading && !content) {
     return (
