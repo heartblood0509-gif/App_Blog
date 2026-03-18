@@ -28,7 +28,6 @@ interface StepGenerateProps {
   referenceText: string;
   settings: GenerationSettings;
   selectedTitle: string;
-  selectedSubtitles: string[];
 }
 
 const CONVERT_TABS: {
@@ -75,7 +74,6 @@ export function StepGenerate({
   referenceText,
   settings,
   selectedTitle,
-  selectedSubtitles,
 }: StepGenerateProps) {
   const [activeConvertTab, setActiveConvertTab] =
     useState<ConvertFormat | null>(null);
@@ -206,7 +204,6 @@ export function StepGenerate({
       topic: settings.topic.trim(),
       keywords: settings.keywords.trim(),
       selectedTitle: selectedTitle || undefined,
-      subtitles: selectedSubtitles.filter((s) => s.trim()),
       productName: settings.productName.trim() || undefined,
       productAdvantages: settings.productAdvantages.trim() || undefined,
       productLink: settings.productLink.trim() || undefined,
@@ -266,10 +263,6 @@ export function StepGenerate({
         <div className="grid grid-cols-[90px_1fr] gap-1.5 text-base">
           <span className="text-muted-foreground">제목</span>
           <span className="font-semibold">{selectedTitle}</span>
-          <span className="text-muted-foreground">소제목</span>
-          <span className="font-semibold">
-            {selectedSubtitles.filter((s) => s.trim()).length}개
-          </span>
           <span className="text-muted-foreground">주제</span>
           <span className="font-semibold">{settings.topic}</span>
           <span className="text-muted-foreground">키워드</span>

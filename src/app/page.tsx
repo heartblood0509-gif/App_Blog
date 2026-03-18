@@ -54,7 +54,6 @@ export default function Home() {
   const [analysisResult, setAnalysisResult] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [selectedTitle, setSelectedTitle] = useState("");
-  const [selectedSubtitles, setSelectedSubtitles] = useState<string[]>([]);
   const [settings, setSettings] = useState<GenerationSettings>({
     topic: "",
     keywords: "",
@@ -168,8 +167,6 @@ export default function Home() {
               keywords={settings.keywords}
               selectedTitle={selectedTitle}
               onSelectTitle={setSelectedTitle}
-              selectedSubtitles={selectedSubtitles}
-              onSelectSubtitles={setSelectedSubtitles}
             />
           );
         case 4:
@@ -179,7 +176,6 @@ export default function Home() {
               referenceText={referenceText}
               settings={settings}
               selectedTitle={selectedTitle}
-              selectedSubtitles={selectedSubtitles}
             />
           );
       }

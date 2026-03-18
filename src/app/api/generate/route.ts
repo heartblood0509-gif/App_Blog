@@ -16,14 +16,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { analysisResult, topic, keywords, selectedTitle, subtitles, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc } = parsed.data;
+    const { analysisResult, topic, keywords, selectedTitle, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc } = parsed.data;
 
     const client = getGeminiClient();
     const prompt = buildGenerationPrompt(
       analysisResult,
       topic,
       keywords,
-      { selectedTitle, subtitles, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc }
+      { selectedTitle, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc }
     );
 
     const stream = new ReadableStream({
