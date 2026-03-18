@@ -25,12 +25,21 @@ export const generateSchema = z.object({
   selectedTitle: z.string().optional(),
   productName: z.string().optional(),
   productAdvantages: z.string().optional(),
+  productLink: z.string().optional(),
   requirements: z.string().optional(),
   charCountRange: z.string().optional(),
+  includeImageDesc: z.boolean().optional(),
+  subtitles: z.array(z.string()).optional(),
   projectId: z.string().optional(),
 });
 
 export const convertSchema = z.object({
   blogContent: z.string().min(1, "변환할 블로그 글이 필요합니다."),
   format: z.enum(["youtube-longform", "youtube-shortform", "instagram", "threads"]),
+});
+
+export const resizeSchema = z.object({
+  blogContent: z.string().min(1, "조절할 블로그 글이 필요합니다."),
+  targetCharCount: z.number().min(100, "최소 100자 이상이어야 합니다."),
+  currentCharCount: z.number().min(1),
 });

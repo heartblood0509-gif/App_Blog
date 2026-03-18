@@ -6,8 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, RefreshCw, Loader2, PenLine, AlertCircle } from "lucide-react";
+import {
+  Check,
+  RefreshCw,
+  Loader2,
+  PenLine,
+  AlertCircle,
+  List,
+  X,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
+import type { TitleSuggestion } from "@/lib/prompts";
 
 interface StepTitleProps {
   analysisResult: string;
@@ -15,6 +25,8 @@ interface StepTitleProps {
   keywords: string;
   selectedTitle: string;
   onSelectTitle: (title: string) => void;
+  selectedSubtitles: string[];
+  onSelectSubtitles: (subtitles: string[]) => void;
 }
 
 export function StepTitle({
@@ -23,8 +35,10 @@ export function StepTitle({
   keywords,
   selectedTitle,
   onSelectTitle,
+  selectedSubtitles,
+  onSelectSubtitles,
 }: StepTitleProps) {
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<TitleSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState("");
@@ -46,7 +60,7 @@ export function StepTitle({
       }
 
       const data = await res.json();
-      setSuggestions(data.titles || []);
+      setSuggestions(data.suggestions || []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "제목 추천 오류";
       setFetchError(msg);
@@ -64,10 +78,11 @@ export function StepTitle({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSelectSuggestion = (title: string) => {
+  const handleSelectSuggestion = (suggestion: TitleSuggestion) => {
     setUseCustom(false);
     setCustomTitle("");
-    onSelectTitle(title);
+    onSelectTitle(suggestion.title);
+    onSelectSubtitles([...suggestion.subtitles]);
   };
 
   const handleCustomTitleChange = (value: string) => {
@@ -75,21 +90,38 @@ export function StepTitle({
     if (value.trim()) {
       setUseCustom(true);
       onSelectTitle(value.trim());
+      // Keep existing subtitles if any, or start empty for custom
     } else {
       setUseCustom(false);
-      // If no suggestion is selected either, clear
-      if (!suggestions.includes(selectedTitle)) {
+      if (!suggestions.some((s) => s.title === selectedTitle)) {
         onSelectTitle("");
+        onSelectSubtitles([]);
       }
     }
+  };
+
+  const handleSubtitleChange = (index: number, value: string) => {
+    const updated = [...selectedSubtitles];
+    updated[index] = value;
+    onSelectSubtitles(updated);
+  };
+
+  const handleRemoveSubtitle = (index: number) => {
+    onSelectSubtitles(selectedSubtitles.filter((_, i) => i !== index));
+  };
+
+  const handleAddSubtitle = () => {
+    onSelectSubtitles([...selectedSubtitles, ""]);
   };
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl sm:text-3xl font-extrabold mb-3">제목 선택</h2>
+        <h2 className="text-2xl sm:text-3xl font-extrabold mb-3">
+          제목 & 소제목 선택
+        </h2>
         <p className="text-base sm:text-lg text-muted-foreground">
-          AI가 추천한 제목 중 하나를 선택하거나 직접 입력하세요
+          AI가 추천한 제목과 소제목을 선택하거나 직접 편집하세요
         </p>
       </div>
 
@@ -115,14 +147,16 @@ export function StepTitle({
 
         {isLoading && suggestions.length === 0 ? (
           <div className="space-y-3">
-            <Skeleton className="h-18 w-full rounded-md" />
-            <Skeleton className="h-18 w-full rounded-md" />
-            <Skeleton className="h-18 w-full rounded-md" />
+            <Skeleton className="h-20 w-full rounded-md" />
+            <Skeleton className="h-20 w-full rounded-md" />
+            <Skeleton className="h-20 w-full rounded-md" />
           </div>
         ) : fetchError && suggestions.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-6 rounded-md border border-destructive/30 bg-destructive/5">
             <AlertCircle className="h-8 w-8 text-destructive" />
-            <p className="text-base text-destructive font-medium">제목 추천에 실패했습니다</p>
+            <p className="text-base text-destructive font-medium">
+              제목 추천에 실패했습니다
+            </p>
             <p className="text-sm text-muted-foreground">{fetchError}</p>
             <Button
               variant="outline"
@@ -136,37 +170,49 @@ export function StepTitle({
           </div>
         ) : (
           <div className="grid gap-3">
-            {suggestions.map((title, index) => {
-              const isSelected = !useCustom && selectedTitle === title;
+            {suggestions.map((suggestion, index) => {
+              const isSelected =
+                !useCustom && selectedTitle === suggestion.title;
               return (
                 <Card
-                  key={`${title}-${index}`}
+                  key={`${suggestion.title}-${index}`}
                   className={`cursor-pointer transition-all ${
                     isSelected
                       ? "border-primary bg-primary/5"
                       : "hover:border-primary/30"
                   }`}
-                  onClick={() => handleSelectSuggestion(title)}
+                  onClick={() => handleSelectSuggestion(suggestion)}
                 >
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {isSelected ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        index + 1
-                      )}
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold mt-0.5 ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {isSelected ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          index + 1
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className={`text-base ${isSelected ? "font-semibold" : ""}`}
+                        >
+                          {suggestion.title}
+                        </span>
+                        {suggestion.subtitles.length > 0 && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            소제목 {suggestion.subtitles.length}개:{" "}
+                            {suggestion.subtitles.slice(0, 3).join(" · ")}
+                            {suggestion.subtitles.length > 3 && " ..."}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <span
-                      className={`text-base ${isSelected ? "font-semibold" : ""}`}
-                    >
-                      {title}
-                    </span>
                   </CardContent>
                 </Card>
               );
@@ -199,11 +245,59 @@ export function StepTitle({
           )}
         </div>
 
+        {/* Subtitle editor - shown when title is selected */}
         {selectedTitle && (
-          <div className="pt-2 text-base text-center text-green-500 font-semibold">
-            제목이 선택되었습니다. 다음 단계로 이동하세요.
+          <div className="pt-4 space-y-3 border-t">
+            <Label className="text-base font-semibold flex items-center gap-2">
+              <List className="h-4 w-4" />
+              소제목 편집
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              소제목을 수정하거나 추가/삭제할 수 있습니다
+            </p>
+
+            <div className="space-y-2">
+              {selectedSubtitles.map((subtitle, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground w-6 text-right shrink-0">
+                    {idx + 1}.
+                  </span>
+                  <Input
+                    value={subtitle}
+                    onChange={(e) => handleSubtitleChange(idx, e.target.value)}
+                    className="text-base flex-1"
+                    placeholder={`소제목 ${idx + 1}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveSubtitle(idx)}
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddSubtitle}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              소제목 추가
+            </Button>
           </div>
         )}
+
+        {selectedTitle &&
+          selectedSubtitles.filter((s) => s.trim()).length > 0 && (
+            <div className="pt-2 text-base text-center text-green-500 font-semibold">
+              제목과 소제목이 선택되었습니다. 다음 단계로 이동하세요.
+            </div>
+          )}
       </div>
     </div>
   );

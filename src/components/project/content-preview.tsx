@@ -17,24 +17,95 @@ export function ContentPreview({ content, isLoading }: ContentPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"preview" | "raw">("preview");
 
+  // 마크다운 → 네이버 블로그용 HTML 변환 (소제목 폰트 크기 + 문단 간격 보존)
+  const markdownToNaverHtml = (text: string): string => {
+    const lines = text.split("\n");
+    const htmlLines: string[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // [이미지: ...] → 빈 줄 2개 (사진 공간)
+      if (/^\[이미지:[^\]]*\]$/.test(trimmed)) {
+        htmlLines.push("<p><br></p><p><br></p>");
+        continue;
+      }
+      // 수평선(----) → 빈 줄 2개 (섹션 구분)
+      if (/^-{3,}$/.test(trimmed)) {
+        htmlLines.push("<p><br></p><p><br></p>");
+        continue;
+      }
+      // 빈 줄 → 줄바꿈
+      if (trimmed === "") {
+        htmlLines.push("<p><br></p>");
+        continue;
+      }
+      // H1 제목 → 28px 볼드
+      if (/^# /.test(line)) {
+        const heading = line.replace(/^# /, "").replace(/\*\*([\s\S]+?)\*\*/g, "$1");
+        htmlLines.push(`<p style="font-size:28px"><b>${heading}</b></p><p><br></p>`);
+        continue;
+      }
+      // H2 소제목 → 22px 볼드
+      if (/^## /.test(line)) {
+        const heading = line.replace(/^## /, "").replace(/\*\*([\s\S]+?)\*\*/g, "$1");
+        htmlLines.push(`<p><br></p><p style="font-size:22px"><b>${heading}</b></p><p><br></p>`);
+        continue;
+      }
+      // H3 소소제목 → 19px 볼드
+      if (/^### /.test(line)) {
+        const heading = line.replace(/^### /, "").replace(/\*\*([\s\S]+?)\*\*/g, "$1");
+        htmlLines.push(`<p style="font-size:19px"><b>${heading}</b></p>`);
+        continue;
+      }
+      // 일반 텍스트 → 15px + 볼드/이탤릭 처리 + 링크 텍스트만
+      let processed = trimmed
+        .replace(/\*\*\*([\s\S]+?)\*\*\*/g, "<b><i>$1</i></b>")
+        .replace(/\*\*([\s\S]+?)\*\*/g, "<b>$1</b>")
+        .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/^[-*+]\s+/, "")
+        .replace(/^\d+\.\s+/, "");
+      htmlLines.push(`<p style="font-size:15px">${processed}</p>`);
+    }
+
+    return htmlLines.join("");
+  };
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
+    const html = markdownToNaverHtml(content);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([plainText.trim()], { type: "text/plain" }),
+        }),
+      ]);
+    } catch {
+      // ClipboardItem 미지원 브라우저 폴백
+      await navigator.clipboard.writeText(plainText.trim());
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 마크다운 기호만 제거 후 순수 텍스트 카운트 (네이버 글자수세기와 동일한 방식)
-  const plainText = content
-    ? content
-        .replace(/^#{1,6}\s+/gm, "")          // 헤더 마크다운 (#, ## 등)
-        .replace(/\*\*\*([\s\S]+?)\*\*\*/g, "$1") // 볼드+이탤릭
-        .replace(/\*\*([\s\S]+?)\*\*/g, "$1")     // 볼드
-        .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1") // 이탤릭 (볼드와 혼동 방지)
-        .replace(/^[-*+]\s+/gm, "")           // 비순서 리스트 마커
-        .replace(/^\d+\.\s+/gm, "")           // 순서 리스트 마커 (1. 2. 등)
-        .replace(/^>\s?/gm, "")               // 인용
-        .replace(/~~([\s\S]+?)~~/g, "$1")      // 취소선
-    : "";
+  // 마크다운 → 순수 텍스트 변환 (글자수 카운트용)
+  const stripMarkdown = (text: string): string =>
+    text
+      .replace(/\[이미지:[^\]]*\]/g, "")
+      .replace(/^-{3,}$/gm, "")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/\*\*\*([\s\S]+?)\*\*\*/g, "$1")
+      .replace(/\*\*([\s\S]+?)\*\*/g, "$1")
+      .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .replace(/^>\s?/gm, "")
+      .replace(/~~([\s\S]+?)~~/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/\n{3,}/g, "\n\n");
+
+  const plainText = content ? stripMarkdown(content) : "";
   const charCountWithSpaces = plainText.length;
   const charCountNoSpaces = plainText.replace(/\s/g, "").length;
 

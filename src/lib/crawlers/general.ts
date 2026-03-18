@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { CrawlResult } from "@/types";
+import { decodeResponse } from "./encoding";
 
 const CONTENT_SELECTORS = [
   "article",
@@ -33,7 +34,7 @@ export async function crawlGeneral(url: string): Promise<CrawlResult> {
     throw new Error(`HTTP ${response.status}: 페이지를 불러올 수 없습니다.`);
   }
 
-  const html = await response.text();
+  const html = await decodeResponse(response);
   const $ = cheerio.load(html);
 
   // Remove unwanted elements

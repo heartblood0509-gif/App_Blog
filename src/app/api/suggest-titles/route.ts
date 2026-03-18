@@ -1,5 +1,5 @@
 import { titleSchema } from "@/lib/validations";
-import { getGeminiClient } from "@/lib/gemini";
+import { getGeminiClient, formatGeminiError, withRetry } from "@/lib/gemini";
 import { buildTitlePrompt } from "@/lib/prompts";
 
 export const maxDuration = 60;
@@ -21,10 +21,12 @@ export async function POST(request: Request) {
     const client = getGeminiClient();
     const prompt = buildTitlePrompt(analysisResult, topic, keywords);
 
-    const response = await client.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+    const response = await withRetry(() =>
+      client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      })
+    );
 
     const text = response.text?.trim() || "";
 
@@ -38,8 +40,15 @@ export async function POST(request: Request) {
           { status: 500, headers: { "Content-Type": "application/json" } }
         );
       }
-      const titles = JSON.parse(jsonMatch[0]) as string[];
-      return new Response(JSON.stringify({ titles }), {
+      const raw = JSON.parse(jsonMatch[0]) as Array<{ title: string; subtitles: string[] } | string>;
+
+      // Normalize: handle both new {title, subtitles} and legacy string[] formats
+      const suggestions = raw.map((item) => ({
+        title: typeof item === "string" ? item : item.title,
+        subtitles: typeof item === "string" ? [] : (Array.isArray(item.subtitles) ? item.subtitles : []),
+      }));
+
+      return new Response(JSON.stringify({ suggestions }), {
         headers: { "Content-Type": "application/json" },
       });
     } catch {
@@ -49,9 +58,7 @@ export async function POST(request: Request) {
       );
     }
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "요청 처리 중 오류";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: formatGeminiError(error) }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

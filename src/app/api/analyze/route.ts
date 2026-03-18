@@ -1,5 +1,5 @@
 import { analyzeSchema } from "@/lib/validations";
-import { getGeminiClient } from "@/lib/gemini";
+import { getGeminiClient, formatGeminiError, withRetry } from "@/lib/gemini";
 import { buildAnalysisPrompt } from "@/lib/prompts";
 
 export const maxDuration = 60;
@@ -22,10 +22,12 @@ export async function POST(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const response = await client.models.generateContentStream({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-          });
+          const response = await withRetry(() =>
+            client.models.generateContentStream({
+              model: "gemini-2.5-flash",
+              contents: prompt,
+            })
+          );
 
           for await (const chunk of response) {
             const text = chunk.text;
@@ -36,12 +38,8 @@ export async function POST(request: Request) {
 
           controller.close();
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "분석 중 오류가 발생했습니다.";
           controller.enqueue(
-            new TextEncoder().encode(`\n\n[오류] ${message}`)
+            new TextEncoder().encode(`\n\n[오류] ${formatGeminiError(error)}`)
           );
           controller.close();
         }

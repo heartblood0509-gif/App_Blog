@@ -1,35 +1,78 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StepAnalysis, type AnalysisMode } from "@/components/project/step-analysis";
-import { StepSettings, type GenerationSettings } from "@/components/project/step-settings";
+import {
+  StepContentType,
+  type ContentType,
+} from "@/components/project/step-content-type";
+import {
+  StepAnalysis,
+  type AnalysisMode,
+} from "@/components/project/step-analysis";
+import {
+  StepSettings,
+  type GenerationSettings,
+} from "@/components/project/step-settings";
 import { StepTitle } from "@/components/project/step-title";
 import { StepGenerate } from "@/components/project/step-generate";
+import {
+  StepThreadsSettings,
+  type ThreadsSettings,
+} from "@/components/project/step-threads-settings";
+import { StepThreadsGenerate } from "@/components/project/step-threads-generate";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 
-const STEPS = [
+const BLOG_STEPS = [
+  { label: "콘텐츠 유형", description: "블로그 또는 쓰레드 선택" },
   { label: "분석 방식", description: "템플릿 활용 또는 레퍼런스 글 분석" },
   { label: "글 설정", description: "주제, 키워드, 글자수 설정" },
   { label: "제목 선택", description: "AI 추천 제목 선택" },
   { label: "생성 & 변환", description: "블로그 글 생성 + 콘텐츠 변환" },
 ];
 
+const THREADS_STEPS = [
+  { label: "콘텐츠 유형", description: "블로그 또는 쓰레드 선택" },
+  { label: "쓰레드 설정", description: "뉴스 기사 링크 및 요구사항" },
+  { label: "쓰레드 생성", description: "뉴스 기사 기반 쓰레드 작성" },
+];
+
 export default function Home() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [direction, setDirection] = useState<"forward" | "backward">(
+    "forward"
+  );
+  const [isAnimating, setIsAnimating] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Content type
+  const [contentType, setContentType] = useState<ContentType | null>(null);
+
+  // Blog states
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>(null);
   const [analysisResult, setAnalysisResult] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [selectedTitle, setSelectedTitle] = useState("");
+  const [selectedSubtitles, setSelectedSubtitles] = useState<string[]>([]);
   const [settings, setSettings] = useState<GenerationSettings>({
     topic: "",
     keywords: "",
     productName: "",
     productAdvantages: "",
+    productLink: "",
     requirements: "",
-    charCountRange: "1500-2500",
+    charCountRange: "reference",
+    includeImageDesc: false,
   });
+
+  // Threads states
+  const [threadsSettings, setThreadsSettings] = useState<ThreadsSettings>({
+    newsUrl: "",
+    requirements: "",
+  });
+
+  const steps = contentType === "threads" ? THREADS_STEPS : BLOG_STEPS;
 
   const handleAnalysisComplete = useCallback(
     (analysis: string, refText: string) => {
@@ -40,41 +83,163 @@ export default function Home() {
   );
 
   const canGoNext = () => {
-    if (currentStep === 0) return !!analysisResult;
-    if (currentStep === 1)
-      return settings.topic.trim() !== "" && settings.keywords.trim() !== "";
-    if (currentStep === 2) return selectedTitle.trim() !== "";
+    if (currentStep === 0) return contentType !== null;
+
+    if (contentType === "blog") {
+      if (currentStep === 1) return !!analysisResult;
+      if (currentStep === 2)
+        return (
+          settings.topic.trim() !== "" && settings.keywords.trim() !== ""
+        );
+      if (currentStep === 3) return selectedTitle.trim() !== "";
+      return false;
+    }
+
+    if (contentType === "threads") {
+      if (currentStep === 1) return threadsSettings.newsUrl.trim() !== "";
+      return false;
+    }
+
     return false;
+  };
+
+  const goToStep = (next: number, dir: "forward" | "backward") => {
+    setDirection(dir);
+    setIsAnimating(true);
+    setTimeout(() => {
+      setCurrentStep(next);
+      setIsAnimating(false);
+    }, 150);
+  };
+
+  // Reset scroll on step change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentStep]);
+
+  const animationClass = isAnimating
+    ? direction === "forward"
+      ? "opacity-0 translate-x-8"
+      : "opacity-0 -translate-x-8"
+    : "opacity-100 translate-x-0";
+
+  const handleBack = () => {
+    if (currentStep === 0) return;
+    if (
+      contentType === "blog" &&
+      currentStep === 1 &&
+      analysisMode !== null
+    ) {
+      setAnalysisMode(null);
+      return;
+    }
+    goToStep(currentStep - 1, "backward");
+  };
+
+  const renderStep = () => {
+    if (currentStep === 0) {
+      return (
+        <StepContentType
+          selected={contentType}
+          onSelect={setContentType}
+        />
+      );
+    }
+
+    if (contentType === "blog") {
+      switch (currentStep) {
+        case 1:
+          return (
+            <StepAnalysis
+              onComplete={handleAnalysisComplete}
+              mode={analysisMode}
+              onModeChange={setAnalysisMode}
+            />
+          );
+        case 2:
+          return (
+            <StepSettings settings={settings} onChange={setSettings} />
+          );
+        case 3:
+          return (
+            <StepTitle
+              analysisResult={analysisResult}
+              topic={settings.topic}
+              keywords={settings.keywords}
+              selectedTitle={selectedTitle}
+              onSelectTitle={setSelectedTitle}
+              selectedSubtitles={selectedSubtitles}
+              onSelectSubtitles={setSelectedSubtitles}
+            />
+          );
+        case 4:
+          return (
+            <StepGenerate
+              analysisResult={analysisResult}
+              referenceText={referenceText}
+              settings={settings}
+              selectedTitle={selectedTitle}
+              selectedSubtitles={selectedSubtitles}
+            />
+          );
+      }
+    }
+
+    if (contentType === "threads") {
+      switch (currentStep) {
+        case 1:
+          return (
+            <StepThreadsSettings
+              settings={threadsSettings}
+              onChange={setThreadsSettings}
+            />
+          );
+        case 2:
+          return <StepThreadsGenerate settings={threadsSettings} />;
+      }
+    }
+
+    return null;
   };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       {/* Stepper indicator */}
       <div className="mb-10">
-        <div className="flex items-center justify-between">
-          {STEPS.map((step, index) => {
+        <div className="flex items-center">
+          {steps.map((step, index) => {
             const isCompleted = index < currentStep;
             const isCurrent = index === currentStep;
             return (
-              <div key={step.label} className="flex items-center flex-1 last:flex-initial">
-                <div className="flex flex-col items-center">
+              <div
+                key={`${step.label}-${index}`}
+                className="flex items-center flex-1 last:flex-none"
+              >
+                {/* Step circle + label */}
+                <div className="flex flex-col items-center min-w-[60px] sm:min-w-[80px]">
                   <div
-                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-colors ${
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ${
                       isCompleted
-                        ? "bg-green-600 text-white"
+                        ? "bg-green-600 text-white scale-100"
                         : isCurrent
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
+                          ? "bg-primary text-primary-foreground ring-4 ring-primary/20 scale-105"
+                          : "bg-muted text-muted-foreground scale-100"
                     }`}
                   >
-                    {isCompleted ? <Check className="h-5 w-5 sm:h-6 sm:w-6" /> : index + 1}
+                    {isCompleted ? (
+                      <Check className="h-5 w-5 sm:h-6 sm:w-6" />
+                    ) : (
+                      index + 1
+                    )}
                   </div>
                   <div className="mt-2.5 text-center">
                     <p
-                      className={`text-sm sm:text-base font-semibold ${
+                      className={`text-sm sm:text-base font-semibold transition-colors duration-300 ${
                         isCurrent
                           ? "text-foreground"
-                          : "text-muted-foreground"
+                          : isCompleted
+                            ? "text-green-600"
+                            : "text-muted-foreground"
                       }`}
                     >
                       {step.label}
@@ -84,12 +249,18 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                {index < STEPS.length - 1 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-2 sm:mx-4 mt-[-2rem] ${
-                      index < currentStep ? "bg-green-600" : "bg-muted"
-                    }`}
-                  />
+                {/* Connector line */}
+                {index < steps.length - 1 && (
+                  <div className="flex-1 mx-1 sm:mx-3 -mt-8">
+                    <div className="h-0.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-green-600 rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: index < currentStep ? "100%" : "0%",
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -97,36 +268,15 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Step content */}
+      {/* Step content with animation */}
       <Card>
-        <CardContent className="p-6 sm:p-8">
-          {currentStep === 0 && (
-            <StepAnalysis
-              onComplete={handleAnalysisComplete}
-              mode={analysisMode}
-              onModeChange={setAnalysisMode}
-            />
-          )}
-          {currentStep === 1 && (
-            <StepSettings settings={settings} onChange={setSettings} />
-          )}
-          {currentStep === 2 && (
-            <StepTitle
-              analysisResult={analysisResult}
-              topic={settings.topic}
-              keywords={settings.keywords}
-              selectedTitle={selectedTitle}
-              onSelectTitle={setSelectedTitle}
-            />
-          )}
-          {currentStep === 3 && (
-            <StepGenerate
-              analysisResult={analysisResult}
-              referenceText={referenceText}
-              settings={settings}
-              selectedTitle={selectedTitle}
-            />
-          )}
+        <CardContent className="p-6 sm:p-8 overflow-hidden">
+          <div
+            ref={contentRef}
+            className={`transition-all duration-300 ease-out ${animationClass}`}
+          >
+            {renderStep()}
+          </div>
         </CardContent>
       </Card>
 
@@ -134,14 +284,8 @@ export default function Home() {
       <div className="flex items-center justify-between mt-8">
         <Button
           variant="outline"
-          onClick={() => {
-            if (currentStep === 0 && analysisMode !== null) {
-              setAnalysisMode(null);
-            } else {
-              setCurrentStep((s) => s - 1);
-            }
-          }}
-          disabled={currentStep === 0 && analysisMode === null}
+          onClick={handleBack}
+          disabled={currentStep === 0 || isAnimating}
           className="gap-2 text-base px-5 py-2.5"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -149,13 +293,13 @@ export default function Home() {
         </Button>
 
         <span className="text-base font-medium text-muted-foreground">
-          {currentStep + 1} / {STEPS.length}
+          {currentStep + 1} / {steps.length}
         </span>
 
-        {currentStep < STEPS.length - 1 ? (
+        {currentStep < steps.length - 1 ? (
           <Button
-            onClick={() => setCurrentStep((s) => s + 1)}
-            disabled={!canGoNext()}
+            onClick={() => goToStep(currentStep + 1, "forward")}
+            disabled={!canGoNext() || isAnimating}
             className="gap-2 text-base px-5 py-2.5"
           >
             다음

@@ -1,5 +1,5 @@
 import { generateSchema } from "@/lib/validations";
-import { getGeminiClient } from "@/lib/gemini";
+import { getGeminiClient, formatGeminiError, withRetry } from "@/lib/gemini";
 import { buildGenerationPrompt } from "@/lib/prompts";
 
 export const maxDuration = 60;
@@ -16,23 +16,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const { analysisResult, topic, keywords, selectedTitle, productName, productAdvantages, requirements, charCountRange } = parsed.data;
+    const { analysisResult, topic, keywords, selectedTitle, subtitles, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc } = parsed.data;
 
     const client = getGeminiClient();
     const prompt = buildGenerationPrompt(
       analysisResult,
       topic,
       keywords,
-      { selectedTitle, productName, productAdvantages, requirements, charCountRange }
+      { selectedTitle, subtitles, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc }
     );
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const response = await client.models.generateContentStream({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-          });
+          const response = await withRetry(() =>
+            client.models.generateContentStream({
+              model: "gemini-2.5-flash",
+              contents: prompt,
+            })
+          );
 
           for await (const chunk of response) {
             const text = chunk.text;
@@ -43,12 +45,8 @@ export async function POST(request: Request) {
 
           controller.close();
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "생성 중 오류가 발생했습니다.";
           controller.enqueue(
-            new TextEncoder().encode(`\n\n[오류] ${message}`)
+            new TextEncoder().encode(`\n\n[오류] ${formatGeminiError(error)}`)
           );
           controller.close();
         }

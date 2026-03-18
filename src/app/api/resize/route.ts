@@ -1,13 +1,13 @@
-import { convertSchema } from "@/lib/validations";
+import { resizeSchema } from "@/lib/validations";
 import { getGeminiClient, formatGeminiError, withRetry } from "@/lib/gemini";
-import { buildConvertPrompt } from "@/lib/prompts";
+import { buildResizePrompt } from "@/lib/prompts";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const parsed = convertSchema.safeParse(body);
+    const parsed = resizeSchema.safeParse(body);
 
     if (!parsed.success) {
       return new Response(
@@ -16,10 +16,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { blogContent, format } = parsed.data;
+    const { blogContent, targetCharCount, currentCharCount } = parsed.data;
 
     const client = getGeminiClient();
-    const prompt = buildConvertPrompt(blogContent, format);
+    const prompt = buildResizePrompt(
+      blogContent,
+      targetCharCount,
+      currentCharCount
+    );
 
     const stream = new ReadableStream({
       async start(controller) {

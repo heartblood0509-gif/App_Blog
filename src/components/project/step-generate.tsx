@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Copy,
   Check,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -27,6 +28,7 @@ interface StepGenerateProps {
   referenceText: string;
   settings: GenerationSettings;
   selectedTitle: string;
+  selectedSubtitles: string[];
 }
 
 const CONVERT_TABS: {
@@ -57,16 +59,20 @@ const CONVERT_TABS: {
 ];
 
 const CHAR_RANGE_LABELS: Record<string, string> = {
+  "500-1500": "500~1,500자",
   "1500-2500": "1,500~2,500자",
   "2500-3500": "2,500~3,500자",
   reference: "레퍼런스 글자수",
 };
+
+const countChars = (text: string) => text.replace(/\s/g, "").length;
 
 export function StepGenerate({
   analysisResult,
   referenceText,
   settings,
   selectedTitle,
+  selectedSubtitles,
 }: StepGenerateProps) {
   const [activeConvertTab, setActiveConvertTab] =
     useState<ConvertFormat | null>(null);
@@ -75,6 +81,8 @@ export function StepGenerate({
     Record<string, string>
   >({});
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
+  const [resizedContent, setResizedContent] = useState<string | null>(null);
+  const [targetCharCount, setTargetCharCount] = useState(0);
 
   const saveToSupabase = async (generatedText: string) => {
     const supabase = getSupabaseClient();
@@ -145,6 +153,49 @@ export function StepGenerate({
     reset: resetConvert,
   } = useStreaming(convertStreamCallbacks);
 
+  const resizeStreamCallbacks = useMemo(
+    () => ({
+      onComplete: (fullText: string) => {
+        setResizedContent(fullText);
+        toast.success("글자수 조절이 완료되었습니다.");
+      },
+      onError: (msg: string) => {
+        toast.error(msg);
+      },
+    }),
+    []
+  );
+
+  const {
+    data: resizingContent,
+    isStreaming: isResizing,
+    startStream: startResizeStream,
+    abortStream: abortResizeStream,
+    reset: resetResize,
+  } = useStreaming(resizeStreamCallbacks);
+
+  // Display content: resized takes priority over original
+  const displayContent = resizedContent || generatedContent;
+  const currentCharCount = displayContent ? countChars(displayContent) : 0;
+
+  // Preview content changes during resize streaming
+  const previewContent = isResizing ? resizingContent : displayContent;
+  const previewLoading = isGenerating || isResizing;
+
+  // Slider range
+  const sliderMin = 200;
+  const sliderMax = Math.max(
+    5000,
+    Math.ceil((currentCharCount * 1.5) / 100) * 100
+  );
+
+  // Initialize/update target char count when content changes
+  useEffect(() => {
+    if (currentCharCount > 0 && !isResizing) {
+      setTargetCharCount(currentCharCount);
+    }
+  }, [currentCharCount, isResizing]);
+
   const handleGenerate = () => {
     startBlogStream("/api/generate", {
       analysisResult,
@@ -152,10 +203,13 @@ export function StepGenerate({
       topic: settings.topic.trim(),
       keywords: settings.keywords.trim(),
       selectedTitle: selectedTitle || undefined,
+      subtitles: selectedSubtitles.filter((s) => s.trim()),
       productName: settings.productName.trim() || undefined,
       productAdvantages: settings.productAdvantages.trim() || undefined,
+      productLink: settings.productLink.trim() || undefined,
       requirements: settings.requirements.trim() || undefined,
       charCountRange: settings.charCountRange,
+      includeImageDesc: settings.includeImageDesc,
     });
   };
 
@@ -164,7 +218,7 @@ export function StepGenerate({
     activeConvertTabRef.current = format;
     resetConvert();
     startConvertStream("/api/convert", {
-      blogContent: generatedContent,
+      blogContent: displayContent,
       format,
     });
   };
@@ -175,6 +229,24 @@ export function StepGenerate({
     await navigator.clipboard.writeText(text);
     setCopiedFormat(format);
     setTimeout(() => setCopiedFormat(null), 2000);
+  };
+
+  const handleResize = () => {
+    resetResize();
+    setConvertResults({});
+    startResizeStream("/api/resize", {
+      blogContent: displayContent,
+      targetCharCount,
+      currentCharCount,
+    });
+  };
+
+  const handleResetBlog = () => {
+    resetBlogGeneration();
+    setResizedContent(null);
+    setTargetCharCount(0);
+    resetResize();
+    setConvertResults({});
   };
 
   return (
@@ -191,6 +263,10 @@ export function StepGenerate({
         <div className="grid grid-cols-[90px_1fr] gap-1.5 text-base">
           <span className="text-muted-foreground">제목</span>
           <span className="font-semibold">{selectedTitle}</span>
+          <span className="text-muted-foreground">소제목</span>
+          <span className="font-semibold">
+            {selectedSubtitles.filter((s) => s.trim()).length}개
+          </span>
           <span className="text-muted-foreground">주제</span>
           <span className="font-semibold">{settings.topic}</span>
           <span className="text-muted-foreground">키워드</span>
@@ -209,6 +285,14 @@ export function StepGenerate({
               </span>
             </>
           )}
+          {settings.productName && (
+            <>
+              <span className="text-muted-foreground">제품 링크</span>
+              <span className="font-semibold truncate">
+                {settings.productLink.trim() || "없음 (제품명만 언급)"}
+              </span>
+            </>
+          )}
           {settings.requirements && (
             <>
               <span className="text-muted-foreground">요구사항</span>
@@ -219,12 +303,17 @@ export function StepGenerate({
           )}
           <span className="text-muted-foreground">글자 수</span>
           <span className="font-semibold">
-            {CHAR_RANGE_LABELS[settings.charCountRange] || settings.charCountRange}
+            {CHAR_RANGE_LABELS[settings.charCountRange] ||
+              settings.charCountRange}
+          </span>
+          <span className="text-muted-foreground">이미지 설명</span>
+          <span className="font-semibold">
+            {settings.includeImageDesc ? "포함" : "미포함"}
           </span>
         </div>
       </div>
 
-      {/* Blog generation */}
+      {/* Blog generation / resize controls */}
       <div className="flex items-center justify-center gap-3">
         {!generatedContent && !isGenerating && (
           <Button
@@ -246,34 +335,121 @@ export function StepGenerate({
             </div>
           </>
         )}
-        {generatedContent && !isGenerating && (
+        {isResizing && (
+          <>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={abortResizeStream}
+            >
+              조절 중단
+            </Button>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              글자수를 조절하고 있습니다...
+            </div>
+          </>
+        )}
+        {generatedContent && !isGenerating && !isResizing && (
           <>
             <Button
               variant="outline"
-              onClick={() => {
-                resetBlogGeneration();
-                setConvertResults({});
-              }}
+              onClick={handleResetBlog}
               className="gap-1.5"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               다시 생성
             </Button>
-            <ExportDialog content={generatedContent} title={settings.topic} />
+            <ExportDialog
+              content={displayContent}
+              title={settings.topic}
+            />
           </>
         )}
       </div>
 
       {/* Blog content preview */}
-      {(generatedContent || isGenerating) && (
+      {(previewContent || isGenerating || isResizing) && (
         <>
           <Separator />
-          <ContentPreview content={generatedContent} isLoading={isGenerating} />
+          <ContentPreview
+            content={previewContent}
+            isLoading={previewLoading}
+          />
+        </>
+      )}
+
+      {/* Character count adjustment slider */}
+      {displayContent && !isGenerating && !isResizing && (
+        <>
+          <Separator />
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-center flex items-center justify-center gap-2">
+              <SlidersHorizontal className="h-5 w-5" />
+              글자수 조절
+            </h3>
+            <p className="text-sm text-muted-foreground text-center">
+              현재{" "}
+              <span className="font-semibold text-foreground">
+                {currentCharCount.toLocaleString()}자
+              </span>{" "}
+              (공백 제외)
+            </p>
+
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-14 text-right shrink-0">
+                  {sliderMin.toLocaleString()}자
+                </span>
+                <input
+                  type="range"
+                  min={sliderMin}
+                  max={sliderMax}
+                  step={100}
+                  value={targetCharCount}
+                  onChange={(e) => setTargetCharCount(Number(e.target.value))}
+                  className="flex-1 h-2 rounded-full appearance-none cursor-pointer bg-muted accent-green-600 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-green-600 [&::-webkit-slider-thumb]:cursor-pointer"
+                />
+                <span className="text-xs text-muted-foreground w-14 shrink-0">
+                  {sliderMax.toLocaleString()}자
+                </span>
+              </div>
+
+              <div className="text-center">
+                <span className="text-base font-bold">
+                  목표: {targetCharCount.toLocaleString()}자
+                </span>
+                {targetCharCount !== currentCharCount && (
+                  <span
+                    className={`ml-2 text-sm font-medium ${
+                      targetCharCount > currentCharCount
+                        ? "text-blue-500"
+                        : "text-orange-500"
+                    }`}
+                  >
+                    ({targetCharCount > currentCharCount ? "+" : ""}
+                    {(targetCharCount - currentCharCount).toLocaleString()}자)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleResize}
+                  disabled={Math.abs(targetCharCount - currentCharCount) < 100}
+                  className="gap-2 bg-green-600 hover:bg-green-700"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  글자수 조절
+                </Button>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
       {/* Content conversion tabs - only show after blog is generated */}
-      {generatedContent && !isGenerating && (
+      {displayContent && !isGenerating && !isResizing && (
         <>
           <Separator />
           <div className="space-y-4">

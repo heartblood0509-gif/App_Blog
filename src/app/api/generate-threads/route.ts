@@ -1,13 +1,19 @@
-import { convertSchema } from "@/lib/validations";
 import { getGeminiClient, formatGeminiError, withRetry } from "@/lib/gemini";
-import { buildConvertPrompt } from "@/lib/prompts";
+import { buildThreadsFromNewsPrompt } from "@/lib/prompts";
+import { crawlUrl } from "@/lib/crawlers";
+import { z } from "zod";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+const generateThreadsSchema = z.object({
+  url: z.string().url("유효한 URL을 입력해주세요."),
+  requirements: z.string().optional(),
+});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const parsed = convertSchema.safeParse(body);
+    const parsed = generateThreadsSchema.safeParse(body);
 
     if (!parsed.success) {
       return new Response(
@@ -16,10 +22,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const { blogContent, format } = parsed.data;
+    // Crawl the news article
+    let newsContent: string;
+    try {
+      const crawlResult = await crawlUrl(parsed.data.url);
+      newsContent = crawlResult.title
+        ? `# ${crawlResult.title}\n\n${crawlResult.content}`
+        : crawlResult.content;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "크롤링 실패";
+      return new Response(
+        JSON.stringify({
+          error: `뉴스 기사 크롤링에 실패했습니다: ${msg}`,
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     const client = getGeminiClient();
-    const prompt = buildConvertPrompt(blogContent, format);
+    const prompt = buildThreadsFromNewsPrompt(
+      newsContent,
+      parsed.data.requirements
+    );
 
     const stream = new ReadableStream({
       async start(controller) {
