@@ -16,7 +16,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const client = getGeminiClient();
+    const clientApiKey = request.headers.get("x-api-key") || undefined;
+    const client = getGeminiClient(clientApiKey);
     const prompt = buildAnalysisPrompt(parsed.data.referenceText);
 
     const stream = new ReadableStream({
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
         try {
           const response = await withRetry(() =>
             client.models.generateContentStream({
-              model: "gemini-2.5-flash",
+              model: "gemini-2.5-pro",
               contents: prompt,
             })
           );

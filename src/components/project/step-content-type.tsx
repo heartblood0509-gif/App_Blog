@@ -56,7 +56,7 @@ export function StepContentType({ selected, onSelect }: StepContentTypeProps) {
             </div>
             <h3 className="text-lg font-bold mb-2">쓰레드</h3>
             <p className="text-sm text-muted-foreground">
-              뉴스 기사를 분석하여 정보성 쓰레드 게시물 작성
+              레퍼런스 분석 기반 쓰레드 게시물 작성
             </p>
           </CardContent>
         </Card>

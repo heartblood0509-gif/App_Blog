@@ -5,9 +5,11 @@ export interface AnalysisTemplate {
   analysisResult: string;
   isBuiltIn?: boolean;
   createdAt?: string;
+  sourceMode?: "crawl" | "image"; // 쓰레드 템플릿의 원본 분석 모드
 }
 
 const STORAGE_KEY = "blog_saved_templates";
+const THREADS_STORAGE_KEY = "threads_saved_templates";
 
 export const BUILT_IN_TEMPLATES: AnalysisTemplate[] = [
   {
@@ -92,10 +94,11 @@ export const BUILT_IN_TEMPLATES: AnalysisTemplate[] = [
   },
 ];
 
-export function getSavedTemplates(): AnalysisTemplate[] {
+export function getSavedTemplates(contentType: "blog" | "threads" = "blog"): AnalysisTemplate[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = contentType === "threads" ? THREADS_STORAGE_KEY : STORAGE_KEY;
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     return JSON.parse(raw) as AnalysisTemplate[];
   } catch {
@@ -103,8 +106,8 @@ export function getSavedTemplates(): AnalysisTemplate[] {
   }
 }
 
-export function saveTemplate(template: Omit<AnalysisTemplate, "id" | "isBuiltIn" | "createdAt">): AnalysisTemplate {
-  const saved = getSavedTemplates();
+export function saveTemplate(template: Omit<AnalysisTemplate, "id" | "isBuiltIn" | "createdAt">, contentType: "blog" | "threads" = "blog"): AnalysisTemplate {
+  const saved = getSavedTemplates(contentType);
   const newTemplate: AnalysisTemplate = {
     ...template,
     id: `custom-${Date.now()}`,
@@ -112,15 +115,20 @@ export function saveTemplate(template: Omit<AnalysisTemplate, "id" | "isBuiltIn"
     createdAt: new Date().toISOString(),
   };
   saved.push(newTemplate);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  const key = contentType === "threads" ? THREADS_STORAGE_KEY : STORAGE_KEY;
+  localStorage.setItem(key, JSON.stringify(saved));
   return newTemplate;
 }
 
-export function deleteTemplate(id: string): void {
-  const saved = getSavedTemplates().filter((t) => t.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+export function deleteTemplate(id: string, contentType: "blog" | "threads" = "blog"): void {
+  const key = contentType === "threads" ? THREADS_STORAGE_KEY : STORAGE_KEY;
+  const saved = getSavedTemplates(contentType).filter((t) => t.id !== id);
+  localStorage.setItem(key, JSON.stringify(saved));
 }
 
-export function getAllTemplates(): AnalysisTemplate[] {
-  return [...BUILT_IN_TEMPLATES, ...getSavedTemplates()];
+export function getAllTemplates(contentType: "blog" | "threads" = "blog"): AnalysisTemplate[] {
+  if (contentType === "threads") {
+    return getSavedTemplates("threads");
+  }
+  return [...BUILT_IN_TEMPLATES, ...getSavedTemplates("blog")];
 }

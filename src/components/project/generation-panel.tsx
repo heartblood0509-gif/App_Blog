@@ -12,7 +12,7 @@ import { ExportDialog } from "./export-dialog";
 import { useStreaming } from "@/hooks/use-streaming";
 import { Wand2, Loader2, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
-import { getSupabaseClient } from "@/lib/supabase";
+import { addHistory } from "@/lib/history";
 
 interface GenerationPanelProps {
   analysisResult: string;
@@ -29,31 +29,15 @@ export function GenerationPanel({
   const [keywords, setKeywords] = useState("");
   const [requirements, setRequirements] = useState("");
 
-  const saveToSupabase = async (generatedText: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-
-    try {
-      await supabase.from("blog_projects").insert({
-        topic: topic.trim(),
-        keywords: keywords.trim(),
-        requirements: requirements.trim() || null,
-        analysis_result: analysisResult,
-        reference_text: referenceText,
-        generated_content: generatedText,
-        status: "completed",
-        title: topic.trim(),
-      });
-    } catch {
-      // Supabase save failure is non-critical
-    }
-  };
-
   const streamingCallbacks = useMemo(
     () => ({
       onComplete: (fullText: string) => {
         toast.success("블로그 글 생성이 완료되었습니다.");
-        saveToSupabase(fullText);
+        addHistory({
+          type: "blog",
+          title: topic.trim(),
+          content: fullText,
+        });
       },
       onError: (msg: string) => {
         toast.error(msg);

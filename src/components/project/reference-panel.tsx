@@ -25,7 +25,7 @@ export function ReferencePanel({ onAnalysisComplete }: ReferencePanelProps) {
     () => ({
       onComplete: (fullText: string) => {
         onAnalysisComplete(fullText, referenceText);
-        toast.success("구조 분석이 완료되었습니다.");
+        toast.success("서사 구조 분석이 완료되었습니다.");
       },
       onError: (msg: string) => {
         toast.error(msg);
@@ -138,13 +138,13 @@ export function ReferencePanel({ onAnalysisComplete }: ReferencePanelProps) {
               size="sm"
             >
               <Search className="h-3.5 w-3.5" />
-              구조 분석
+              서사 구조 분석
             </Button>
           )}
           {isAnalyzing && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              AI가 글 구조를 분석하고 있습니다...
+              AI가 서사 구조를 분석하고 있습니다...
             </div>
           )}
         </div>

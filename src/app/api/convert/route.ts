@@ -18,7 +18,8 @@ export async function POST(request: Request) {
 
     const { blogContent, format } = parsed.data;
 
-    const client = getGeminiClient();
+    const clientApiKey = request.headers.get("x-api-key") || undefined;
+    const client = getGeminiClient(clientApiKey);
     const prompt = buildConvertPrompt(blogContent, format);
 
     const stream = new ReadableStream({

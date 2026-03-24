@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -61,10 +61,23 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
   const [presets, setPresets] = useState<ProductPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [showPresetList, setShowPresetList] = useState(false);
+  const presetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPresets(getAllPresets());
   }, []);
+
+  // 바깥 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    if (!showPresetList) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (presetRef.current && !presetRef.current.contains(e.target as Node)) {
+        setShowPresetList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPresetList]);
 
   const update = (key: keyof GenerationSettings, value: string) => {
     onChange({ ...settings, [key]: value });
@@ -134,7 +147,7 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
         {/* Product preset selector */}
         <div className="space-y-2">
           <Label className="text-base font-semibold">저장된 제품 정보</Label>
-          <div className="relative">
+          <div className="relative" ref={presetRef}>
             <button
               type="button"
               onClick={() => setShowPresetList(!showPresetList)}

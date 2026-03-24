@@ -2,13 +2,24 @@ import { GoogleGenAI } from "@google/genai";
 
 let client: GoogleGenAI | null = null;
 
-export function getGeminiClient(): GoogleGenAI {
+export function getGeminiClient(apiKey?: string): GoogleGenAI {
+  // If a client-provided API key is given, always create a fresh instance
+  if (apiKey) {
+    return new GoogleGenAI({ apiKey });
+  }
+
+  // 사용자 모드에서는 클라이언트 API 키가 필수
+  const isUserMode = process.env.NEXT_PUBLIC_APP_MODE === "user";
+  if (isUserMode) {
+    throw new Error("API 키를 설정해주세요. 헤더의 열쇠 아이콘을 클릭하여 Gemini API 키를 입력해주세요.");
+  }
+
   if (!client) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.");
+    const envKey = process.env.GEMINI_API_KEY;
+    if (!envKey) {
+      throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
     }
-    client = new GoogleGenAI({ apiKey });
+    client = new GoogleGenAI({ apiKey: envKey });
   }
   return client;
 }
@@ -18,7 +29,7 @@ export function formatGeminiError(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
 
   if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) {
-    return "API 요청 한도를 초과했습니다. 잠시 후(약 30초) 다시 시도해주세요.";
+    return `API 요청 한도를 초과했습니다. 잠시 후(약 30초) 다시 시도해주세요. (상세: ${msg.slice(0, 200)})`;
   }
   if (msg.includes("403") || msg.includes("PERMISSION_DENIED")) {
     return "API 키가 유효하지 않습니다. 환경 설정을 확인해주세요.";

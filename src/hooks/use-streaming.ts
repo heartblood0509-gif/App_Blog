@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { getStoredApiKey } from "@/lib/api-key";
 
 interface UseStreamingOptions {
   onComplete?: (fullText: string) => void;
@@ -22,9 +23,13 @@ export function useStreaming(options?: UseStreamingOptions) {
       abortControllerRef.current = new AbortController();
 
       try {
+        const storedKey = getStoredApiKey();
         const response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(storedKey && { "x-api-key": storedKey }),
+          },
           body: JSON.stringify(body),
           signal: abortControllerRef.current.signal,
         });

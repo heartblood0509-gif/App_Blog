@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ThemeToggle } from "./theme-toggle";
+import { ApiKeySettings } from "@/components/api-key-settings";
 import { PenLine, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,7 @@ export function Header() {
             <History className="h-4 w-4" />
             <span className="hidden sm:inline">히스토리</span>
           </Button>
+          <ApiKeySettings />
           <ThemeToggle />
         </div>
       </div>

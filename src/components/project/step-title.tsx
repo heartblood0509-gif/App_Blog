@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getStoredApiKey } from "@/lib/api-key";
 import type { TitleSuggestion } from "@/lib/prompts";
 
 interface StepTitleProps {
@@ -41,9 +42,13 @@ export function StepTitle({
     setIsLoading(true);
     setFetchError(null);
     try {
+      const storedKey = getStoredApiKey();
       const res = await fetch("/api/suggest-titles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(storedKey && { "x-api-key": storedKey }),
+        },
         body: JSON.stringify({ analysisResult, topic, keywords }),
       });
 

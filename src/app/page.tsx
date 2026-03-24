@@ -34,8 +34,9 @@ const BLOG_STEPS = [
 
 const THREADS_STEPS = [
   { label: "콘텐츠 유형", description: "블로그 또는 쓰레드 선택" },
-  { label: "쓰레드 설정", description: "뉴스 기사 링크 및 요구사항" },
-  { label: "쓰레드 생성", description: "뉴스 기사 기반 쓰레드 작성" },
+  { label: "분석 방식", description: "템플릿 활용 또는 레퍼런스 분석" },
+  { label: "글 설정", description: "추가 요구사항 설정" },
+  { label: "쓰레드 생성", description: "설정 기반 쓰레드 작성" },
 ];
 
 export default function Home() {
@@ -67,7 +68,7 @@ export default function Home() {
 
   // Threads states
   const [threadsSettings, setThreadsSettings] = useState<ThreadsSettings>({
-    newsUrl: "",
+    topic: "",
     requirements: "",
   });
 
@@ -95,7 +96,12 @@ export default function Home() {
     }
 
     if (contentType === "threads") {
-      if (currentStep === 1) return threadsSettings.newsUrl.trim() !== "";
+      if (currentStep === 1) return !!analysisResult;
+      if (currentStep === 2) {
+        // Image mode requires topic
+        if (analysisMode === "image") return threadsSettings.topic.trim() !== "";
+        return true; // article mode: requirements are optional
+      }
       return false;
     }
 
@@ -124,11 +130,7 @@ export default function Home() {
 
   const handleBack = () => {
     if (currentStep === 0) return;
-    if (
-      contentType === "blog" &&
-      currentStep === 1 &&
-      analysisMode !== null
-    ) {
+    if (currentStep === 1 && analysisMode !== null) {
       setAnalysisMode(null);
       return;
     }
@@ -140,7 +142,10 @@ export default function Home() {
       return (
         <StepContentType
           selected={contentType}
-          onSelect={setContentType}
+          onSelect={(type) => {
+            setContentType(type);
+            setTimeout(() => goToStep(1, "forward"), 300);
+          }}
         />
       );
     }
@@ -166,7 +171,12 @@ export default function Home() {
               topic={settings.topic}
               keywords={settings.keywords}
               selectedTitle={selectedTitle}
-              onSelectTitle={setSelectedTitle}
+              onSelectTitle={(title) => {
+                setSelectedTitle(title);
+                if (title.trim()) {
+                  setTimeout(() => goToStep(4, "forward"), 400);
+                }
+              }}
             />
           );
         case 4:
@@ -176,6 +186,28 @@ export default function Home() {
               referenceText={referenceText}
               settings={settings}
               selectedTitle={selectedTitle}
+              onNewTitle={() => {
+                setSelectedTitle("");
+                goToStep(3, "backward");
+              }}
+              onRestart={() => {
+                setCurrentStep(0);
+                setContentType(null);
+                setAnalysisMode(null);
+                setAnalysisResult("");
+                setReferenceText("");
+                setSelectedTitle("");
+                setSettings({
+                  topic: "",
+                  keywords: "",
+                  productName: "",
+                  productAdvantages: "",
+                  productLink: "",
+                  requirements: "",
+                  charCountRange: "reference",
+                  includeImageDesc: false,
+                });
+              }}
             />
           );
       }
@@ -185,13 +217,30 @@ export default function Home() {
       switch (currentStep) {
         case 1:
           return (
-            <StepThreadsSettings
-              settings={threadsSettings}
-              onChange={setThreadsSettings}
+            <StepAnalysis
+              onComplete={handleAnalysisComplete}
+              mode={analysisMode}
+              onModeChange={setAnalysisMode}
+              contentType="threads"
             />
           );
         case 2:
-          return <StepThreadsGenerate settings={threadsSettings} />;
+          return (
+            <StepThreadsSettings
+              settings={threadsSettings}
+              onChange={setThreadsSettings}
+              analysisMode={analysisMode}
+            />
+          );
+        case 3:
+          return (
+            <StepThreadsGenerate
+              articleText={referenceText}
+              analysisResult={analysisResult}
+              analysisMode={analysisMode}
+              settings={threadsSettings}
+            />
+          );
       }
     }
 
@@ -199,7 +248,7 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Stepper indicator */}
       <div className="mb-10">
         <div className="flex items-center">
@@ -212,9 +261,9 @@ export default function Home() {
                 className="flex items-center flex-1 last:flex-none"
               >
                 {/* Step circle + label */}
-                <div className="flex flex-col items-center min-w-[60px] sm:min-w-[80px]">
+                <div className="flex flex-col items-center min-w-[70px] sm:min-w-[100px]">
                   <div
-                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ${
+                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-base sm:text-lg font-bold transition-all duration-300 ${
                       isCompleted
                         ? "bg-green-600 text-white scale-100"
                         : isCurrent
@@ -230,7 +279,7 @@ export default function Home() {
                   </div>
                   <div className="mt-2.5 text-center">
                     <p
-                      className={`text-sm sm:text-base font-semibold transition-colors duration-300 ${
+                      className={`text-base sm:text-lg font-bold transition-colors duration-300 ${
                         isCurrent
                           ? "text-foreground"
                           : isCompleted
@@ -240,14 +289,14 @@ export default function Home() {
                     >
                       {step.label}
                     </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block mt-0.5">
+                    <p className="text-sm text-muted-foreground hidden sm:block mt-1 min-h-[2.5rem]">
                       {step.description}
                     </p>
                   </div>
                 </div>
                 {/* Connector line */}
                 {index < steps.length - 1 && (
-                  <div className="flex-1 mx-1 sm:mx-3 -mt-8">
+                  <div className="flex-1 mx-1 sm:mx-3 -mt-14">
                     <div className="h-0.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-green-600 rounded-full transition-all duration-500 ease-out"
@@ -266,7 +315,7 @@ export default function Home() {
 
       {/* Step content with animation */}
       <Card>
-        <CardContent className="p-6 sm:p-8 overflow-hidden">
+        <CardContent className="p-6 sm:p-10 overflow-hidden">
           <div
             ref={contentRef}
             className={`transition-all duration-300 ease-out ${animationClass}`}

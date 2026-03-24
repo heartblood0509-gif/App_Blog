@@ -18,9 +18,11 @@ import {
   Copy,
   Check,
   SlidersHorizontal,
+  Home,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getSupabaseClient } from "@/lib/supabase";
+import { addHistory } from "@/lib/history";
 import type { ConvertFormat } from "@/lib/prompts";
 
 interface StepGenerateProps {
@@ -28,6 +30,8 @@ interface StepGenerateProps {
   referenceText: string;
   settings: GenerationSettings;
   selectedTitle: string;
+  onRestart?: () => void;
+  onNewTitle?: () => void;
 }
 
 const CONVERT_TABS: {
@@ -74,6 +78,8 @@ export function StepGenerate({
   referenceText,
   settings,
   selectedTitle,
+  onRestart,
+  onNewTitle,
 }: StepGenerateProps) {
   const [activeConvertTab, setActiveConvertTab] =
     useState<ConvertFormat | null>(null);
@@ -85,38 +91,22 @@ export function StepGenerate({
   const [resizedContent, setResizedContent] = useState<string | null>(null);
   const [targetCharCount, setTargetCharCount] = useState(0);
 
-  const saveToSupabase = async (generatedText: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-
-    try {
-      await supabase.from("blog_projects").insert({
-        topic: settings.topic.trim(),
-        keywords: settings.keywords.trim(),
-        requirements: settings.requirements.trim() || null,
-        analysis_result: analysisResult,
-        reference_text: referenceText,
-        generated_content: generatedText,
-        status: "completed",
-        title: selectedTitle || settings.topic.trim(),
-      });
-    } catch {
-      // Supabase save failure is non-critical
-    }
-  };
-
   const blogStreamCallbacks = useMemo(
     () => ({
       onComplete: (fullText: string) => {
         toast.success("블로그 글 생성이 완료되었습니다.");
-        saveToSupabase(fullText);
+        addHistory({
+          type: "blog",
+          title: selectedTitle || settings.topic.trim(),
+          content: fullText,
+        });
       },
       onError: (msg: string) => {
         toast.error(msg);
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings, analysisResult, referenceText]
+    [settings, analysisResult, referenceText, selectedTitle]
   );
 
   const {
@@ -566,6 +556,38 @@ export function StepGenerate({
                 </TabsContent>
               ))}
             </Tabs>
+          </div>
+        </>
+      )}
+
+      {/* 완료 후 다음 단계 버튼 */}
+      {generatedContent && !isGenerating && (
+        <>
+          <Separator className="my-6" />
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-bold">다음 단계</h3>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-center gap-3 max-w-md mx-auto">
+            {onNewTitle && (
+              <Button
+                variant="outline"
+                onClick={onNewTitle}
+                className="gap-2 h-14 px-8 text-base flex-1"
+              >
+                <RefreshCw className="h-5 w-5" />
+                새 제목으로 다시 쓰기
+              </Button>
+            )}
+            {onRestart && (
+              <Button
+                variant="outline"
+                onClick={onRestart}
+                className="gap-2 h-14 px-8 text-base flex-1"
+              >
+                <Home className="h-5 w-5" />
+                처음으로
+              </Button>
+            )}
           </div>
         </>
       )}

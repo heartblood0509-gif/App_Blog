@@ -1,64 +1,60 @@
 import { getGeminiClient, formatGeminiError, withRetry } from "@/lib/gemini";
-import {
-  buildThreadsFromNewsPrompt,
-  buildThreadsFromAnalysisPrompt,
-} from "@/lib/prompts";
-import { z } from "zod";
+import { buildThreadsImageAnalysisPrompt } from "@/lib/prompts";
 
 export const maxDuration = 120;
-
-const generateThreadsSchema = z.object({
-  mode: z.enum(["article", "analysis"]),
-  text: z.string().optional(),
-  analysis: z.string().optional(),
-  topic: z.string().optional(),
-  requirements: z.string().optional(),
-});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const parsed = generateThreadsSchema.safeParse(body);
+    const { images } = body;
 
-    if (!parsed.success) {
+    if (!images || !Array.isArray(images) || images.length === 0) {
       return new Response(
-        JSON.stringify({ error: parsed.error.issues[0].message }),
+        JSON.stringify({ error: "이미지를 1장 이상 업로드해주세요." }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const { mode, text, analysis, topic, requirements } = parsed.data;
-
-    // Build prompt based on mode
-    let prompt: string;
-    if (mode === "analysis") {
-      if (!analysis || !topic) {
-        return new Response(
-          JSON.stringify({ error: "분석 결과와 주제를 모두 입력해주세요." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      prompt = buildThreadsFromAnalysisPrompt(analysis, topic, requirements);
-    } else {
-      if (!text || text.length < 50) {
-        return new Response(
-          JSON.stringify({ error: "기사 텍스트가 너무 짧습니다." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      prompt = buildThreadsFromNewsPrompt(text, requirements);
-    }
-
     const clientApiKey = request.headers.get("x-api-key") || undefined;
     const client = getGeminiClient(clientApiKey);
+    const prompt = buildThreadsImageAnalysisPrompt();
+
+    // Build multimodal content parts
+    const parts: any[] = [{ text: prompt }];
+    for (const img of images) {
+      let base64Data: string;
+      let mimeType: string;
+
+      if (img.data.includes(",")) {
+        // data URL format: "data:image/png;base64,..."
+        const match = img.data.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          mimeType = match[1];
+          base64Data = match[2];
+        } else {
+          base64Data = img.data.split(",")[1];
+          mimeType = img.mimeType || "image/png";
+        }
+      } else {
+        base64Data = img.data;
+        mimeType = img.mimeType || "image/png";
+      }
+
+      parts.push({
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
+      });
+    }
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
           const response = await withRetry(() =>
             client.models.generateContentStream({
-              model: "gemini-2.5-flash",
-              contents: prompt,
+              model: "gemini-2.5-pro",
+              contents: [{ role: "user", parts: parts as any }],
             })
           );
 

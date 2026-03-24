@@ -18,7 +18,8 @@ export async function POST(request: Request) {
 
     const { analysisResult, topic, keywords, selectedTitle, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc } = parsed.data;
 
-    const client = getGeminiClient();
+    const clientApiKey = request.headers.get("x-api-key") || undefined;
+    const client = getGeminiClient(clientApiKey);
     const prompt = buildGenerationPrompt(
       analysisResult,
       topic,
