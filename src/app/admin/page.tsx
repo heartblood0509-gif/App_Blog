@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,61 +130,65 @@ export default function AdminPage() {
   if (error) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <m.div
+          className="text-center space-y-4"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <Shield className="h-12 w-12 text-muted-foreground mx-auto" />
           <p className="text-lg font-medium">{error}</p>
-        </div>
+        </m.div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <m.div
+      className="container mx-auto px-4 py-8 max-w-4xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">사용자 관리</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchUsers} className="gap-1.5">
-          <RefreshCw className="h-4 w-4" />
-          새로고침
-        </Button>
+        <m.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+          <Button variant="outline" size="sm" onClick={fetchUsers} className="gap-1.5">
+            <RefreshCw className="h-4 w-4" />
+            새로고침
+          </Button>
+        </m.div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Users className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-            <p className="text-2xl font-bold">{counts.total}</p>
-            <p className="text-xs text-muted-foreground">전체</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <CheckCircle className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
-            <p className="text-2xl font-bold">{counts.active}</p>
-            <p className="text-xs text-muted-foreground">승인됨</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Clock className="h-5 w-5 mx-auto mb-1 text-amber-500" />
-            <p className="text-2xl font-bold">{counts.pending}</p>
-            <p className="text-xs text-muted-foreground">대기 중</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <XCircle className="h-5 w-5 mx-auto mb-1 text-red-500" />
-            <p className="text-2xl font-bold">{counts.revoked}</p>
-            <p className="text-xs text-muted-foreground">해제됨</p>
-          </CardContent>
-        </Card>
+        {[
+          { icon: Users, count: counts.total, label: "전체", color: "text-muted-foreground" },
+          { icon: CheckCircle, count: counts.active, label: "승인됨", color: "text-emerald-500" },
+          { icon: Clock, count: counts.pending, label: "대기 중", color: "text-amber-500" },
+          { icon: XCircle, count: counts.revoked, label: "해제됨", color: "text-red-500" },
+        ].map((stat, i) => (
+          <m.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08 }}
+          >
+            <Card className="shadow-lg border-border/50">
+              <CardContent className="p-4 text-center">
+                <stat.icon className={`h-5 w-5 mx-auto mb-1 ${stat.color}`} />
+                <p className="text-2xl font-bold">{stat.count}</p>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+              </CardContent>
+            </Card>
+          </m.div>
+        ))}
       </div>
 
       {/* User List */}
-      <Card>
+      <Card className="shadow-lg border-border/50">
         <CardHeader>
           <CardTitle className="text-lg">사용자 목록</CardTitle>
         </CardHeader>
@@ -194,65 +199,74 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="divide-y">
-              {users.map((user) => (
-                <div
-                  key={user.email}
-                  className="flex items-center justify-between gap-4 px-6 py-4"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-medium truncate">
-                        {user.name || "(이름 없음)"}
+              <AnimatePresence>
+                {users.map((user, i) => (
+                  <m.div
+                    key={user.email}
+                    className="flex items-center justify-between gap-4 px-6 py-4"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-medium truncate">
+                          {user.name || "(이름 없음)"}
+                        </p>
+                        {statusBadge(user.status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {user.email}
                       </p>
-                      {statusBadge(user.status)}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        가입: {user.createdAt}
+                        {user.lastLogin && ` · 최근 로그인: ${user.lastLogin}`}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      가입: {user.createdAt}
-                      {user.lastLogin && ` · 최근 로그인: ${user.lastLogin}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    {user.status !== "active" && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateStatus(user.email, "active")}
-                        disabled={updating === user.email}
-                        className="gap-1"
-                      >
-                        {updating === user.email ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle className="h-3.5 w-3.5" />
-                        )}
-                        승인
-                      </Button>
-                    )}
-                    {user.status === "active" && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => updateStatus(user.email, "revoked")}
-                        disabled={updating === user.email}
-                        className="gap-1"
-                      >
-                        {updating === user.email ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <XCircle className="h-3.5 w-3.5" />
-                        )}
-                        해제
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                    <div className="flex gap-2 shrink-0">
+                      {user.status !== "active" && (
+                        <m.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button
+                            size="sm"
+                            onClick={() => updateStatus(user.email, "active")}
+                            disabled={updating === user.email}
+                            className="gap-1"
+                          >
+                            {updating === user.email ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            )}
+                            승인
+                          </Button>
+                        </m.div>
+                      )}
+                      {user.status === "active" && (
+                        <m.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => updateStatus(user.email, "revoked")}
+                            disabled={updating === user.email}
+                            className="gap-1"
+                          >
+                            {updating === user.email ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <XCircle className="h-3.5 w-3.5" />
+                            )}
+                            해제
+                          </Button>
+                        </m.div>
+                      )}
+                    </div>
+                  </m.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
+    </m.div>
   );
 }

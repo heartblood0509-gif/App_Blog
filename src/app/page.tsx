@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { m, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,12 +40,24 @@ const THREADS_STEPS = [
   { label: "쓰레드 생성", description: "설정 기반 쓰레드 작성" },
 ];
 
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 200 : -200,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -200 : 200,
+    opacity: 0,
+  }),
+};
+
 export default function Home() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [direction, setDirection] = useState<"forward" | "backward">(
-    "forward"
-  );
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [direction, setDirection] = useState<number>(1);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Content type
@@ -98,9 +111,8 @@ export default function Home() {
     if (contentType === "threads") {
       if (currentStep === 1) return !!analysisResult;
       if (currentStep === 2) {
-        // Image mode requires topic
         if (analysisMode === "image") return threadsSettings.topic.trim() !== "";
-        return true; // article mode: requirements are optional
+        return true;
       }
       return false;
     }
@@ -109,24 +121,14 @@ export default function Home() {
   };
 
   const goToStep = (next: number, dir: "forward" | "backward") => {
-    setDirection(dir);
-    setIsAnimating(true);
-    setTimeout(() => {
-      setCurrentStep(next);
-      setIsAnimating(false);
-    }, 150);
+    setDirection(dir === "forward" ? 1 : -1);
+    setCurrentStep(next);
   };
 
   // Reset scroll on step change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentStep]);
-
-  const animationClass = isAnimating
-    ? direction === "forward"
-      ? "opacity-0 translate-x-8"
-      : "opacity-0 -translate-x-8"
-    : "opacity-100 translate-x-0";
 
   const handleBack = () => {
     if (currentStep === 0) return;
@@ -247,62 +249,91 @@ export default function Home() {
     return null;
   };
 
+  const progressPercentage = ((currentStep + 1) / steps.length) * 100;
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Stepper indicator */}
       <div className="mb-10">
-        <div className="flex items-center">
+        {/* Progress bar */}
+        <div className="relative h-1.5 bg-muted rounded-full overflow-hidden mb-8">
+          <m.div
+            className="absolute top-0 left-0 h-full bg-primary rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPercentage}%` }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          />
+        </div>
+
+        {/* Step circles - uniform grid */}
+        <div
+          className="grid items-start"
+          style={{ gridTemplateColumns: `repeat(${steps.length * 2 - 1}, auto)` }}
+        >
           {steps.map((step, index) => {
             const isCompleted = index < currentStep;
             const isCurrent = index === currentStep;
             return (
               <div
                 key={`${step.label}-${index}`}
-                className="flex items-center flex-1 last:flex-none"
+                className="contents"
               >
                 {/* Step circle + label */}
-                <div className="flex flex-col items-center min-w-[70px] sm:min-w-[100px]">
-                  <div
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-base sm:text-lg font-bold transition-all duration-300 ${
+                <div className="flex flex-col items-center">
+                  <m.div
+                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-colors duration-300 ${
                       isCompleted
-                        ? "bg-green-600 text-white scale-100"
+                        ? "bg-primary text-primary-foreground"
                         : isCurrent
-                          ? "bg-primary text-primary-foreground ring-4 ring-primary/20 scale-105"
-                          : "bg-muted text-muted-foreground scale-100"
+                          ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+                          : "bg-muted text-muted-foreground"
                     }`}
+                    initial={false}
+                    animate={{
+                      scale: isCurrent ? 1.08 : 1,
+                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   >
                     {isCompleted ? (
-                      <Check className="h-5 w-5 sm:h-6 sm:w-6" />
+                      <m.div
+                        initial={{ scale: 0, rotate: -90 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      >
+                        <Check className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </m.div>
                     ) : (
                       index + 1
                     )}
-                  </div>
-                  <div className="mt-2.5 text-center">
+                  </m.div>
+                  <div className="mt-2 text-center max-w-[100px] sm:max-w-[130px]">
                     <p
-                      className={`text-base sm:text-lg font-bold transition-colors duration-300 ${
+                      className={`text-xs sm:text-sm font-bold transition-colors duration-300 ${
                         isCurrent
                           ? "text-foreground"
                           : isCompleted
-                            ? "text-green-600"
+                            ? "text-primary"
                             : "text-muted-foreground"
                       }`}
                     >
                       {step.label}
                     </p>
-                    <p className="text-sm text-muted-foreground hidden sm:block mt-1 min-h-[2.5rem]">
+                    <p className="text-xs text-muted-foreground hidden sm:block mt-1">
                       {step.description}
                     </p>
                   </div>
                 </div>
                 {/* Connector line */}
                 {index < steps.length - 1 && (
-                  <div className="flex-1 mx-1 sm:mx-3 -mt-14">
-                    <div className="h-0.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-green-600 rounded-full transition-all duration-500 ease-out"
-                        style={{
+                  <div className="flex items-center self-start pt-5 sm:pt-[22px] px-1 sm:px-2">
+                    <div className="w-12 sm:w-20 h-0.5 bg-muted rounded-full overflow-hidden">
+                      <m.div
+                        className="h-full bg-primary rounded-full"
+                        initial={{ width: "0%" }}
+                        animate={{
                           width: index < currentStep ? "100%" : "0%",
                         }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
                       />
                     </div>
                   </div>
@@ -314,42 +345,62 @@ export default function Home() {
       </div>
 
       {/* Step content with animation */}
-      <Card>
+      <Card className="shadow-lg border-border/50">
         <CardContent className="p-6 sm:p-10 overflow-hidden">
-          <div
-            ref={contentRef}
-            className={`transition-all duration-300 ease-out ${animationClass}`}
-          >
-            {renderStep()}
+          <div ref={contentRef} className="relative min-h-[200px]">
+            <AnimatePresence mode="wait" custom={direction}>
+              <m.div
+                key={currentStep}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                {renderStep()}
+              </m.div>
+            </AnimatePresence>
           </div>
         </CardContent>
       </Card>
 
       {/* Navigation buttons */}
       <div className="flex items-center justify-between mt-8">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          disabled={currentStep === 0 || isAnimating}
-          className="gap-2 text-base px-5 py-2.5"
+        <m.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: currentStep > 0 ? 1 : 0.4 }}
+          transition={{ duration: 0.3 }}
         >
-          <ChevronLeft className="h-5 w-5" />
-          이전
-        </Button>
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            disabled={currentStep === 0}
+            className="gap-2 text-base px-5 py-2.5"
+          >
+            <ChevronLeft className="h-5 w-5" />
+            이전
+          </Button>
+        </m.div>
 
         <span className="text-base font-medium text-muted-foreground">
           {currentStep + 1} / {steps.length}
         </span>
 
         {currentStep < steps.length - 1 ? (
-          <Button
-            onClick={() => goToStep(currentStep + 1, "forward")}
-            disabled={!canGoNext() || isAnimating}
-            className="gap-2 text-base px-5 py-2.5"
+          <m.div
+            whileHover={canGoNext() ? { scale: 1.03 } : {}}
+            whileTap={canGoNext() ? { scale: 0.97 } : {}}
           >
-            다음
-            <ChevronRight className="h-5 w-5" />
-          </Button>
+            <Button
+              onClick={() => goToStep(currentStep + 1, "forward")}
+              disabled={!canGoNext()}
+              className="gap-2 text-base px-5 py-2.5"
+            >
+              다음
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </m.div>
         ) : (
           <div className="w-[100px]" />
         )}

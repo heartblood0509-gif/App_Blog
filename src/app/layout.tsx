@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/header";
 import { AuthSessionProvider } from "@/components/session-provider";
 import { AuthGuard } from "@/components/auth-guard";
+import { MotionProvider } from "@/components/motion-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,12 +47,14 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <AuthGuard>
-              <div className="min-h-screen bg-background">
-                <Header />
-                <main>{children}</main>
-              </div>
-            </AuthGuard>
+            <MotionProvider>
+              <AuthGuard>
+                <div className="min-h-screen bg-background">
+                  <Header />
+                  <main>{children}</main>
+                </div>
+              </AuthGuard>
+            </MotionProvider>
             <Toaster position="bottom-right" richColors />
           </ThemeProvider>
         </AuthSessionProvider>
