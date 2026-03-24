@@ -17,30 +17,29 @@ export default function OGImage() {
           alignItems: "center",
           justifyContent: "center",
           background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #3b82f6 100%)",
-          position: "relative",
         }}
       >
-        {/* 로고 아이콘 */}
+        {/* 아이콘 */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "120px",
-            height: "120px",
-            borderRadius: "28px",
+            width: "180px",
+            height: "180px",
+            borderRadius: "40px",
             background: "rgba(255,255,255,0.15)",
-            marginBottom: "40px",
+            marginBottom: "50px",
           }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="64"
-            height="64"
+            width="100"
+            height="100"
             viewBox="0 0 24 24"
             fill="none"
             stroke="#ffffff"
-            strokeWidth="2"
+            strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
@@ -52,11 +51,12 @@ export default function OGImage() {
         {/* 타이틀 */}
         <span
           style={{
-            fontSize: "80px",
+            fontSize: "120px",
             fontWeight: 800,
             color: "#ffffff",
-            letterSpacing: "-2px",
-            marginBottom: "16px",
+            letterSpacing: "-3px",
+            lineHeight: 1,
+            marginBottom: "24px",
           }}
         >
           Blog Pick
@@ -65,25 +65,12 @@ export default function OGImage() {
         {/* 설명 */}
         <span
           style={{
-            fontSize: "32px",
-            color: "rgba(255,255,255,0.8)",
+            fontSize: "44px",
+            color: "rgba(255,255,255,0.75)",
             fontWeight: 400,
           }}
         >
           블로그 & 쓰레드 자동 생성
-        </span>
-
-        {/* 하단 URL */}
-        <span
-          style={{
-            position: "absolute",
-            bottom: "40px",
-            fontSize: "20px",
-            color: "rgba(255,255,255,0.4)",
-            letterSpacing: "1px",
-          }}
-        >
-          blogpick.vercel.app
         </span>
       </div>
     ),
