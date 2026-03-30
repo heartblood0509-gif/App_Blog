@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { addHistory } from "@/lib/history";
+import { replaceSectionContent } from "@/lib/sections";
+import { SectionEditSheet } from "./section-edit-sheet";
 import type { ConvertFormat } from "@/lib/prompts";
 
 interface StepGenerateProps {
@@ -90,6 +92,11 @@ export function StepGenerate({
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [resizedContent, setResizedContent] = useState<string | null>(null);
   const [targetCharCount, setTargetCharCount] = useState(0);
+  const [editSectionIndex, setEditSectionIndex] = useState<number | null>(null);
+  const [editSectionContent, setEditSectionContent] = useState("");
+  const [editSectionHeading, setEditSectionHeading] = useState("");
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [regenSheetOpen, setRegenSheetOpen] = useState(false);
 
   const blogStreamCallbacks = useMemo(
     () => ({
@@ -165,11 +172,41 @@ export function StepGenerate({
     reset: resetResize,
   } = useStreaming(resizeStreamCallbacks);
 
+  const editStreamCallbacks = useMemo(
+    () => ({
+      onComplete: (fullText: string) => {
+        if (editSectionIndex !== null) {
+          const current = resizedContent || generatedContent;
+          if (current) {
+            const merged = replaceSectionContent(current, editSectionIndex, fullText);
+            setResizedContent(merged);
+          }
+        }
+        setEditSheetOpen(false);
+        setEditSectionIndex(null);
+        toast.success("구간 수정이 완료되었습니다.");
+      },
+      onError: (msg: string) => {
+        toast.error(msg);
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editSectionIndex, resizedContent, generatedContent]
+  );
+
+  const {
+    data: editStreamData,
+    isStreaming: isEditStreaming,
+    startStream: startEditStream,
+    abortStream: abortEditStream,
+    reset: resetEditStream,
+  } = useStreaming(editStreamCallbacks);
+
   // Display content: resized takes priority over original
   const displayContent = resizedContent || generatedContent;
   const currentCharCount = displayContent ? countChars(displayContent) : 0;
 
-  // Preview content changes during resize streaming
+  // Preview content changes during resize streaming (edit streaming shows in sheet, not here)
   const previewContent = isResizing ? resizingContent : displayContent;
   const previewLoading = isGenerating || isResizing;
 
@@ -231,11 +268,48 @@ export function StepGenerate({
     });
   };
 
+  const handleSectionSelect = (index: number, content: string, heading: string) => {
+    setEditSectionIndex(index);
+    setEditSectionContent(content);
+    setEditSectionHeading(heading);
+    resetEditStream();
+    setEditSheetOpen(true);
+  };
+
+  const handleEditSubmit = (instruction: string) => {
+    resetEditStream();
+    startEditStream("/api/edit-section", {
+      fullContent: displayContent,
+      sectionContent: editSectionContent,
+      sectionIndex: editSectionIndex,
+      instruction,
+    });
+  };
+
+  const handleRegenWithInstruction = (instruction: string) => {
+    // 전체 글을 수정 대상으로 설정
+    setEditSectionIndex(null);
+    resetEditStream();
+    setRegenSheetOpen(false);
+    setConvertResults({});
+    // 전체 글 수정은 resize 스트림 재활용 (결과를 resizedContent에 저장)
+    resetResize();
+    startResizeStream("/api/edit-section", {
+      fullContent: displayContent,
+      sectionContent: displayContent,
+      sectionIndex: 0,
+      instruction,
+    });
+  };
+
   const handleResetBlog = () => {
     resetBlogGeneration();
     setResizedContent(null);
     setTargetCharCount(0);
     resetResize();
+    resetEditStream();
+    setEditSheetOpen(false);
+    setEditSectionIndex(null);
     setConvertResults({});
   };
 
@@ -340,7 +414,7 @@ export function StepGenerate({
           <>
             <Button
               variant="outline"
-              onClick={handleResetBlog}
+              onClick={() => setRegenSheetOpen(true)}
               className="gap-1.5"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -361,6 +435,8 @@ export function StepGenerate({
           <ContentPreview
             content={previewContent}
             isLoading={previewLoading}
+            editMode={!!displayContent && !isGenerating && !isResizing && !isEditStreaming}
+            onSectionSelect={handleSectionSelect}
           />
         </>
       )}
@@ -591,6 +667,30 @@ export function StepGenerate({
           </div>
         </>
       )}
+
+      {/* 구간 수정 바텀시트 */}
+      <SectionEditSheet
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        sectionHeading={editSectionHeading}
+        sectionContent={editSectionContent}
+        streamingData={editStreamData}
+        isEditing={isEditStreaming}
+        onSubmit={handleEditSubmit}
+        onAbort={abortEditStream}
+      />
+
+      {/* 전체 다시 생성 바텀시트 */}
+      <SectionEditSheet
+        open={regenSheetOpen}
+        onOpenChange={setRegenSheetOpen}
+        sectionHeading="전체 글"
+        sectionContent={displayContent || ""}
+        streamingData=""
+        isEditing={false}
+        onSubmit={handleRegenWithInstruction}
+        onAbort={() => {}}
+      />
     </div>
   );
 }

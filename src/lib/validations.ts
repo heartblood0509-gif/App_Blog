@@ -43,3 +43,10 @@ export const resizeSchema = z.object({
   targetCharCount: z.number().min(100, "최소 100자 이상이어야 합니다."),
   currentCharCount: z.number().min(1),
 });
+
+export const editSectionSchema = z.object({
+  fullContent: z.string().min(1, "블로그 글이 필요합니다."),
+  sectionContent: z.string().min(1, "수정할 구간이 필요합니다."),
+  sectionIndex: z.number().min(0),
+  instruction: z.string().min(1, "수정 지시사항을 입력해주세요."),
+});

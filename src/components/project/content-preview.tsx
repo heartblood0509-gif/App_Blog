@@ -6,14 +6,46 @@ import remarkGfm from "remark-gfm";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Eye, Code } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Copy, Check, Eye, Code, PenLine } from "lucide-react";
+import { splitIntoSections } from "@/lib/sections";
+import type { Components } from "react-markdown";
+
+const markdownComponents: Components = {
+  h1: ({ children }) => (
+    <h1 className="text-2xl sm:text-3xl font-extrabold mt-2 mb-5 pb-3 border-b leading-tight">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-xl sm:text-2xl font-bold mt-8 mb-3 leading-snug">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-lg sm:text-xl font-semibold mt-6 mb-2 leading-snug">
+      {children}
+    </h3>
+  ),
+  p: ({ children }) => (
+    <p className="text-base leading-relaxed mb-3">{children}</p>
+  ),
+  li: ({ children }) => (
+    <li className="text-base leading-relaxed">{children}</li>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-bold text-foreground">{children}</strong>
+  ),
+};
 
 interface ContentPreviewProps {
   content: string;
   isLoading: boolean;
+  editMode?: boolean;
+  onSectionSelect?: (index: number, content: string, heading: string) => void;
 }
 
-export function ContentPreview({ content, isLoading }: ContentPreviewProps) {
+export function ContentPreview({ content, isLoading, editMode, onSectionSelect }: ContentPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"preview" | "raw">("preview");
 
@@ -176,39 +208,48 @@ export function ContentPreview({ content, isLoading }: ContentPreviewProps) {
 
       <ScrollArea className="h-[500px] rounded-md border bg-muted/30 p-5">
         {viewMode === "preview" ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => (
-                  <h1 className="text-2xl sm:text-3xl font-extrabold mt-2 mb-5 pb-3 border-b leading-tight">
-                    {children}
-                  </h1>
-                ),
-                h2: ({ children }) => (
-                  <h2 className="text-xl sm:text-2xl font-bold mt-8 mb-3 leading-snug">
-                    {children}
-                  </h2>
-                ),
-                h3: ({ children }) => (
-                  <h3 className="text-lg sm:text-xl font-semibold mt-6 mb-2 leading-snug">
-                    {children}
-                  </h3>
-                ),
-                p: ({ children }) => (
-                  <p className="text-base leading-relaxed mb-3">{children}</p>
-                ),
-                li: ({ children }) => (
-                  <li className="text-base leading-relaxed">{children}</li>
-                ),
-                strong: ({ children }) => (
-                  <strong className="font-bold text-foreground">{children}</strong>
-                ),
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          </div>
+          editMode && onSectionSelect ? (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              {splitIntoSections(content).map((section) => (
+                <div
+                  key={section.index}
+                  className="relative group rounded-lg px-2 -mx-2 py-1 transition-all cursor-pointer hover:bg-green-500/5 hover:ring-2 hover:ring-green-500/30"
+                  onClick={() =>
+                    onSectionSelect(
+                      section.index,
+                      section.content,
+                      section.heading
+                    )
+                  }
+                >
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 text-xs bg-background border-green-500/50 text-green-600"
+                    >
+                      <PenLine className="h-3 w-3" />
+                      수정
+                    </Badge>
+                  </div>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {section.content}
+                  </ReactMarkdown>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
+          )
         ) : (
           <pre className="text-sm whitespace-pre-wrap font-mono">{content}</pre>
         )}

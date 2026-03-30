@@ -11,8 +11,41 @@ import {
   deletePreset,
   type ProductPreset,
 } from "@/lib/product-presets";
-import { Save, Trash2, ChevronDown } from "lucide-react";
+import { Save, Trash2, ChevronDown, HelpCircle, X } from "lucide-react";
 import { toast } from "sonner";
+
+function Guide({
+  open,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        data-guide-trigger
+        className={`inline-flex items-center justify-center h-5 w-5 rounded-full transition-colors ${
+          open
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+        }`}
+        aria-label="도움말"
+      >
+        {open ? <X className="h-3 w-3" /> : <HelpCircle className="h-4 w-4" />}
+      </button>
+      {open && (
+        <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-4 text-sm leading-relaxed space-y-2" data-guide>
+          {children}
+        </div>
+      )}
+    </>
+  );
+}
 
 export type CharCountRange =
   | "500-1500"
@@ -57,27 +90,63 @@ const CHAR_COUNT_OPTIONS: {
   },
 ];
 
+const REQUIREMENT_SUGGESTIONS = [
+  // 말투/톤
+  { label: "친근한 말투", text: "친근한 말투로 작성" },
+  { label: "전문적인 톤", text: "전문적이고 신뢰감 있는 톤으로 작성" },
+  { label: "~요 체", text: "~요 체로 작성" },
+  { label: "~다 체", text: "~다 체로 작성" },
+  // 타겟/페르소나
+  { label: "20대 여성 컨셉", text: "글쓴이 컨셉: 20대 여성으로 빙의하여 작성" },
+  { label: "30대 직장인 컨셉", text: "글쓴이 컨셉: 30대 직장인으로 빙의하여 작성" },
+  { label: "육아맘 컨셉", text: "글쓴이 컨셉: 육아맘으로 빙의하여 작성" },
+  { label: "20대 남성 컨셉", text: "글쓴이 컨셉: 20대 남성으로 빙의하여 작성" },
+  { label: "40~50대 컨셉", text: "글쓴이 컨셉: 40~50대 중년으로 빙의하여 작성" },
+  // 콘텐츠 스타일
+  { label: "경험담 위주", text: "개인 경험담 위주로 작성" },
+  { label: "비교 리뷰", text: "다른 제품과 비교하는 리뷰 형식으로 작성" },
+  { label: "리스트형 구성", text: "리스트형(번호 매기기)으로 구성" },
+  { label: "전후 비교 포함", text: "사용 전후 비교 내용 포함" },
+  // 포함 요소
+  { label: "가격 정보 포함", text: "가격 정보를 포함" },
+  { label: "단점도 언급", text: "장점뿐 아니라 단점도 솔직하게 언급" },
+  { label: "계절감 반영", text: "현재 계절에 맞는 내용으로 작성" },
+  { label: "오프닝에 결론 먼저", text: "오프닝에서 결론/결과를 먼저 보여주고 시작" },
+];
+
 export function StepSettings({ settings, onChange }: StepSettingsProps) {
   const [presets, setPresets] = useState<ProductPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [showPresetList, setShowPresetList] = useState(false);
+  const [guideOpen, setGuideOpen] = useState<"product" | "topic" | "requirements" | null>(null);
   const presetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPresets(getAllPresets());
   }, []);
 
-  // 바깥 클릭 시 드롭다운 닫기
+  // 바깥 클릭 시 드롭다운/가이드 닫기
   useEffect(() => {
-    if (!showPresetList) return;
+    if (!showPresetList && !guideOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (presetRef.current && !presetRef.current.contains(e.target as Node)) {
+      if (
+        showPresetList &&
+        presetRef.current &&
+        !presetRef.current.contains(e.target as Node)
+      ) {
         setShowPresetList(false);
+      }
+      if (guideOpen) {
+        const target = e.target as HTMLElement;
+        const clickedGuide = target.closest("[data-guide]") || target.closest("[data-guide-trigger]");
+        if (!clickedGuide) {
+          setGuideOpen(null);
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showPresetList]);
+  }, [showPresetList, guideOpen]);
 
   const update = (key: keyof GenerationSettings, value: string) => {
     onChange({ ...settings, [key]: value });
@@ -146,7 +215,34 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
       <div className="grid gap-6 max-w-lg mx-auto">
         {/* Product preset selector */}
         <div className="space-y-2">
-          <Label className="text-base font-semibold">저장된 제품 정보</Label>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-base font-semibold">저장된 제품 정보</Label>
+            <Guide
+              open={guideOpen === "product"}
+              onToggle={() =>
+                setGuideOpen(guideOpen === "product" ? null : "product")
+              }
+            >
+              <p className="font-semibold text-blue-700 dark:text-blue-300">
+                제품 정보란?
+              </p>
+              <p className="text-muted-foreground">
+                홍보하고 싶은 제품이 있을 때 사용합니다.
+                제품명, 장점, 구매 링크를 입력하면 블로그 글 <strong>후반부에 자연스럽게</strong> 녹여서 생성해줍니다.
+              </p>
+              <p className="font-semibold text-blue-700 dark:text-blue-300 pt-1">
+                어떻게 활용하나요?
+              </p>
+              <ul className="text-muted-foreground list-disc pl-4 space-y-1">
+                <li>제품 없이 순수 정보성 글만 쓸 때는 <strong>비워두면 됩니다</strong></li>
+                <li>자주 쓰는 제품은 &quot;현재 제품 정보 저장&quot;으로 저장해두면 다음에 한 번에 불러올 수 있습니다</li>
+                <li>제품 링크를 넣으면 글 하단에 구매 링크가 포함되고, 비우면 제품명만 언급됩니다</li>
+              </ul>
+              <div className="pt-1 px-3 py-2 bg-white/60 dark:bg-white/5 rounded-md text-muted-foreground">
+                <span className="font-medium">예시:</span> 제품명 &quot;아이오페 레티놀 세럼&quot; + 장점 &quot;민감성 피부에도 자극 없음&quot; 입력 → 글 후반부에 &quot;요즘 쓰고 있는 아이오페 레티놀 세럼이 민감한 제 피부에도...&quot; 식으로 자연스럽게 반영
+              </div>
+            </Guide>
+          </div>
           <div className="relative" ref={presetRef}>
             <button
               type="button"
@@ -236,9 +332,40 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
 
         {/* Topic */}
         <div className="space-y-2">
-          <Label htmlFor="topic" className="text-base font-semibold">
-            주제 <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="topic" className="text-base font-semibold">
+              주제 <span className="text-destructive">*</span>
+            </Label>
+            <Guide
+              open={guideOpen === "topic"}
+              onToggle={() =>
+                setGuideOpen(guideOpen === "topic" ? null : "topic")
+              }
+            >
+              <p className="font-semibold text-blue-700 dark:text-blue-300">
+                주제란?
+              </p>
+              <p className="text-muted-foreground">
+                AI가 글을 쓸 <strong>핵심 소재</strong>입니다.
+                앞서 분석한 레퍼런스 글의 &quot;서사 구조&quot;는 그대로 따르되, 주제만 바꿔서 새로운 글을 생성합니다.
+              </p>
+              <p className="font-semibold text-blue-700 dark:text-blue-300 pt-1">
+                잘 쓰는 팁
+              </p>
+              <ul className="text-muted-foreground list-disc pl-4 space-y-1">
+                <li><strong>구체적일수록 좋습니다</strong> — &quot;스킨케어&quot;보다 &quot;여름 자외선 차단제 고르는 법&quot;</li>
+                <li>네이버 검색에 실제로 사람들이 검색할 만한 표현을 사용하세요</li>
+                <li>레퍼런스 글과 <strong>같은 카테고리</strong>의 주제를 넣으면 더 자연스러운 결과가 나옵니다</li>
+              </ul>
+              <div className="pt-1 px-3 py-2 bg-white/60 dark:bg-white/5 rounded-md text-muted-foreground">
+                <p className="font-medium pb-1">좋은 예시 vs 나쁜 예시</p>
+                <p>&#10004; &quot;30대 직장인 아침 스킨케어 루틴 추천&quot;</p>
+                <p>&#10004; &quot;강아지 산책 후 발 씻기는 방법&quot;</p>
+                <p className="text-muted-foreground/60">&#10008; &quot;스킨케어&quot; (너무 광범위)</p>
+                <p className="text-muted-foreground/60">&#10008; &quot;좋은 글 써줘&quot; (주제가 아님)</p>
+              </div>
+            </Guide>
+          </div>
           <Input
             id="topic"
             placeholder="예: 2024 여름 스킨케어 루틴"
@@ -254,7 +381,7 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
         {/* Keywords */}
         <div className="space-y-2">
           <Label htmlFor="keywords" className="text-base font-semibold">
-            키워드 <span className="text-destructive">*</span>
+            노출 키워드 <span className="text-destructive">*</span>
           </Label>
           <Input
             id="keywords"
@@ -326,9 +453,70 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
 
         {/* Requirements */}
         <div className="space-y-2">
-          <Label htmlFor="requirements" className="text-base font-semibold">
-            추가 요구사항
-          </Label>
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="requirements" className="text-base font-semibold">
+              추가 요구사항
+            </Label>
+            <Guide
+              open={guideOpen === "requirements"}
+              onToggle={() =>
+                setGuideOpen(
+                  guideOpen === "requirements" ? null : "requirements"
+                )
+              }
+            >
+              <p className="font-semibold text-blue-700 dark:text-blue-300">
+                추가 요구사항이란?
+              </p>
+              <p className="text-muted-foreground">
+                AI에게 전달하는 <strong>세부 지시사항</strong>입니다.
+                여기에 적은 내용이 그대로 AI 프롬프트에 반영되어 글의 톤, 타겟, 스타일 등을 조절합니다.
+              </p>
+              <p className="font-semibold text-blue-700 dark:text-blue-300 pt-1">
+                클릭하면 바로 추가됩니다
+              </p>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {REQUIREMENT_SUGGESTIONS.map((suggestion) => {
+                  const isActive = settings.requirements.includes(
+                    suggestion.text
+                  );
+                  return (
+                    <button
+                      key={suggestion.text}
+                      type="button"
+                      data-guide
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        isActive
+                          ? "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                          : "bg-white dark:bg-white/10 border-border hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950 text-muted-foreground"
+                      }`}
+                      onClick={() => {
+                        if (isActive) {
+                          const newReq = settings.requirements
+                            .replace(suggestion.text, "")
+                            .replace(/,\s*,/g, ",")
+                            .replace(/^,\s*|,\s*$/g, "")
+                            .trim();
+                          update("requirements", newReq);
+                        } else {
+                          const newReq = settings.requirements.trim()
+                            ? `${settings.requirements.trim()}, ${suggestion.text}`
+                            : suggestion.text;
+                          update("requirements", newReq);
+                        }
+                      }}
+                    >
+                      {isActive ? "✓ " : ""}
+                      {suggestion.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-muted-foreground text-xs pt-1">
+                태그 선택 후 직접 수정도 가능합니다. 자유롭게 조합하세요.
+              </p>
+            </Guide>
+          </div>
           <Textarea
             id="requirements"
             placeholder="예: 20대 여성 타겟, 친근한 말투, 전후 사진 언급 포함"
