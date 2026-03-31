@@ -170,10 +170,11 @@ export function ApiKeySettings() {
                       </ol>
                     </div>
                     <div className="border-t pt-3">
-                      <p className="text-sm font-medium text-foreground mb-1.5">2. 유료 플랜 전환 (선택)</p>
+                      <p className="text-sm font-medium text-foreground mb-1.5">2. 유료 플랜 전환 (필수)</p>
                       <div className="text-xs text-muted-foreground mb-2 space-y-1">
-                        <p>무료 플랜으로 블로그, 쓰레드 포스팅은 제약 없이 충분히 사용 가능합니다.</p>
-                        <p>단, <strong className="text-foreground">쓰레드 이미지 생성</strong>은 무료 플랜의 요청 제한으로 인해 <strong className="text-foreground">유료 플랜을 권장</strong>합니다.</p>
+                        <p>블로그, 쓰레드 텍스트 생성은 <strong className="text-foreground">무료 플랜</strong>으로 사용 가능합니다.</p>
+                        <p><strong className="text-foreground">쓰레드 이미지 생성</strong>은 유료 기능입니다. (1장당 약 50원, $0.039)</p>
+                        <p>이미지 생성을 사용하려면 <strong className="text-foreground">유료 플랜 전환이 필요</strong>합니다.</p>
                       </div>
                       <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1 pl-1">
                         <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-primary/80">Google AI Studio</a> 접속</li>

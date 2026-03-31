@@ -13,6 +13,7 @@ import type { ImageStyle } from "@/lib/prompts";
 import { Wand2, Loader2, RotateCcw, ImageIcon, Download, RefreshCw, Camera, Palette, Film, Square } from "lucide-react";
 import { toast } from "sonner";
 import { addHistory } from "@/lib/history";
+import { appConfig } from "@/config/app-config";
 
 interface StepThreadsGenerateProps {
   articleText: string;
@@ -234,6 +235,11 @@ export function StepThreadsGenerate({
               <p className="text-sm text-muted-foreground">
                 쓰레드 내용에 어울리는 이미지를 AI로 생성합니다
               </p>
+              {appConfig.isUser && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  이미지 생성은 유료 API 기능입니다 (1장당 약 50원, 유료 플랜 필요)
+                </p>
+              )}
             </div>
 
             {/* Settings grid */}
