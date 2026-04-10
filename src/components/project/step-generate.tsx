@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import { addHistory } from "@/lib/history";
 import { replaceSectionContent } from "@/lib/sections";
 import { SectionEditSheet } from "./section-edit-sheet";
+import { BlogImageGenerator, parseImageMarkers } from "./blog-image-generator";
+import type { BlogImage } from "./blog-image-generator";
 import type { ConvertFormat } from "@/lib/prompts";
 
 interface StepGenerateProps {
@@ -97,6 +99,7 @@ export function StepGenerate({
   const [editSectionHeading, setEditSectionHeading] = useState("");
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [regenSheetOpen, setRegenSheetOpen] = useState(false);
+  const [blogImages, setBlogImages] = useState<BlogImage[]>([]);
 
   const blogStreamCallbacks = useMemo(
     () => ({
@@ -121,8 +124,9 @@ export function StepGenerate({
     isStreaming: isGenerating,
     startStream: startBlogStream,
     abortStream: abortBlogStream,
-    reset: resetBlogGeneration,
+    reset: _resetBlogGeneration,
   } = useStreaming(blogStreamCallbacks);
+  void _resetBlogGeneration;
 
   const convertStreamCallbacks = useMemo(
     () => ({
@@ -190,7 +194,6 @@ export function StepGenerate({
         toast.error(msg);
       },
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [editSectionIndex, resizedContent, generatedContent]
   );
 
@@ -300,17 +303,6 @@ export function StepGenerate({
       sectionIndex: 0,
       instruction,
     });
-  };
-
-  const handleResetBlog = () => {
-    resetBlogGeneration();
-    setResizedContent(null);
-    setTargetCharCount(0);
-    resetResize();
-    resetEditStream();
-    setEditSheetOpen(false);
-    setEditSectionIndex(null);
-    setConvertResults({});
   };
 
   return (
@@ -437,6 +429,20 @@ export function StepGenerate({
             isLoading={previewLoading}
             editMode={!!displayContent && !isGenerating && !isResizing && !isEditStreaming}
             onSectionSelect={handleSectionSelect}
+            blogImages={blogImages}
+          />
+        </>
+      )}
+
+      {/* AI 이미지 생성 — 이미지 마커가 있을 때만 표시 */}
+      {displayContent && !isGenerating && !isResizing && parseImageMarkers(displayContent).length > 0 && (
+        <>
+          <Separator />
+          <BlogImageGenerator
+            content={displayContent}
+            images={blogImages}
+            onImagesChange={setBlogImages}
+            title={selectedTitle || settings.topic}
           />
         </>
       )}

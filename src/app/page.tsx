@@ -76,7 +76,7 @@ export default function Home() {
     productLink: "",
     requirements: "",
     charCountRange: "reference",
-    includeImageDesc: false,
+    includeImageDesc: true,
   });
 
   // Threads states
@@ -91,6 +91,13 @@ export default function Home() {
     (analysis: string, refText: string) => {
       setAnalysisResult(analysis);
       setReferenceText(refText);
+      // 템플릿 선택 시 (refText가 비어있음) 자동으로 다음 스텝 이동
+      if (analysis && !refText) {
+        setTimeout(() => {
+          setDirection(1);
+          setCurrentStep(2);
+        }, 400);
+      }
     },
     []
   );
@@ -207,7 +214,7 @@ export default function Home() {
                   productLink: "",
                   requirements: "",
                   charCountRange: "reference",
-                  includeImageDesc: false,
+                  includeImageDesc: true,
                 });
               }}
             />

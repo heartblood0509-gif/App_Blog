@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Eye, Code, PenLine } from "lucide-react";
 import { splitIntoSections } from "@/lib/sections";
+import type { BlogImage } from "./blog-image-generator";
 import type { Components } from "react-markdown";
+
+const CIRCLE_NUMBERS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"];
 
 const markdownComponents: Components = {
   h1: ({ children }) => (
@@ -43,19 +46,40 @@ interface ContentPreviewProps {
   isLoading: boolean;
   editMode?: boolean;
   onSectionSelect?: (index: number, content: string, heading: string) => void;
+  blogImages?: BlogImage[];
 }
 
-export function ContentPreview({ content, isLoading, editMode, onSectionSelect }: ContentPreviewProps) {
+export function ContentPreview({ content, isLoading, editMode, onSectionSelect, blogImages }: ContentPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"preview" | "raw">("preview");
 
+  // [이미지: ...] 마커에 번호를 붙인 텍스트 생성 (복사용)
+  const replaceImageMarkersWithNumbers = (text: string): string => {
+    let idx = 0;
+    return text.replace(/\[이미지:\s*[^\]]+\]/g, () => {
+      const num = CIRCLE_NUMBERS[idx] || `${idx + 1}`;
+      idx++;
+      return `======= 📷 ${num} 삽입 =======`;
+    });
+  };
+
   // 마크다운 → 네이버 블로그용 HTML 변환 (소제목 폰트 크기 + 문단 간격 보존)
   const markdownToNaverHtml = (text: string): string => {
-    const lines = text.split("\n");
+    // 이미지가 있으면 마커를 번호로 변환
+    const processedText = blogImages && blogImages.length > 0
+      ? replaceImageMarkersWithNumbers(text)
+      : text;
+    const lines = processedText.split("\n");
     const htmlLines: string[] = [];
 
     for (const line of lines) {
       const trimmed = line.trim();
+
+      // 번호 마커 → 강조 스타일로 변환
+      if (/^=+ 📷 .+ 삽입 =+$/.test(trimmed)) {
+        htmlLines.push(`<p><br></p><p style="font-size:15px;text-align:center;color:#888"><b>${trimmed}</b></p><p><br></p>`);
+        continue;
+      }
 
       // [이미지: ...] → 빈 줄 2개 (사진 공간)
       if (/^\[이미지:[^\]]*\]$/.test(trimmed)) {
@@ -91,7 +115,7 @@ export function ContentPreview({ content, isLoading, editMode, onSectionSelect }
         continue;
       }
       // 일반 텍스트 → 15px + 볼드/이탤릭 처리 + 링크 텍스트만
-      let processed = trimmed
+      const processed = trimmed
         .replace(/\*\*\*([\s\S]+?)\*\*\*/g, "<b><i>$1</i></b>")
         .replace(/\*\*([\s\S]+?)\*\*/g, "<b>$1</b>")
         .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>")
@@ -106,16 +130,19 @@ export function ContentPreview({ content, isLoading, editMode, onSectionSelect }
 
   const handleCopy = async () => {
     const html = markdownToNaverHtml(content);
+    // 이미지가 있으면 plain text에도 번호 마커 적용
+    const copyPlainText = blogImages && blogImages.length > 0
+      ? replaceImageMarkersWithNumbers(plainText.trim())
+      : plainText.trim();
     try {
       await navigator.clipboard.write([
         new ClipboardItem({
           "text/html": new Blob([html], { type: "text/html" }),
-          "text/plain": new Blob([plainText.trim()], { type: "text/plain" }),
+          "text/plain": new Blob([copyPlainText], { type: "text/plain" }),
         }),
       ]);
     } catch {
-      // ClipboardItem 미지원 브라우저 폴백
-      await navigator.clipboard.writeText(plainText.trim());
+      await navigator.clipboard.writeText(copyPlainText);
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -208,48 +235,140 @@ export function ContentPreview({ content, isLoading, editMode, onSectionSelect }
 
       <ScrollArea className="h-[500px] rounded-md border bg-muted/30 p-5">
         {viewMode === "preview" ? (
-          editMode && onSectionSelect ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              {splitIntoSections(content).map((section) => (
-                <div
-                  key={section.index}
-                  className="relative group rounded-lg px-2 -mx-2 py-1 transition-all cursor-pointer hover:bg-green-500/5 hover:ring-2 hover:ring-green-500/30"
-                  onClick={() =>
-                    onSectionSelect(
-                      section.index,
-                      section.content,
-                      section.heading
-                    )
+          (() => {
+            // 이미지 마커를 인라인 이미지 또는 번호 플레이스홀더로 렌더링하는 함수
+            const imageMap = new Map<number, BlogImage>();
+            blogImages?.forEach((img) => imageMap.set(img.index, img));
+
+            // 전체 content에서 각 마커의 글로벌 인덱스를 미리 계산
+            const globalImageIndices = new Map<string, number>();
+            let globalIdx = 0;
+            const allMarkers = content.match(/\[이미지:\s*[^\]]+\]/g) || [];
+            // 각 마커의 위치(offset)별로 글로벌 인덱스 부여
+            let searchFrom = 0;
+            for (const marker of allMarkers) {
+              const pos = content.indexOf(marker, searchFrom);
+              globalImageIndices.set(`${pos}`, globalIdx++);
+              searchFrom = pos + marker.length;
+            }
+
+            const renderContentWithImages = (md: string) => {
+              // [이미지: 설명] 마커를 기준으로 분할
+              const parts = md.split(/(\[이미지:\s*[^\]]+\])/g);
+
+              // 이 섹션의 첫 마커가 content 전체에서 몇 번째인지 계산
+              let markerCountBefore = 0;
+              const sectionStart = content.indexOf(md);
+              if (sectionStart > 0) {
+                const textBefore = content.slice(0, sectionStart);
+                markerCountBefore = (textBefore.match(/\[이미지:\s*[^\]]+\]/g) || []).length;
+              }
+              let localImgIdx = 0;
+
+              return parts.map((part, i) => {
+                const match = part.match(/^\[이미지:\s*([^\]]+)\]$/);
+                if (match) {
+                  const currentIdx = markerCountBefore + localImgIdx++;
+                  const img = imageMap.get(currentIdx);
+                  const num = CIRCLE_NUMBERS[currentIdx] || `${currentIdx + 1}`;
+
+                  if (img) {
+                    return (
+                      <div key={`img-${i}`} className="my-4 relative">
+                        <div className="absolute top-2 left-2 z-10">
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-black/70 text-white text-xs font-bold">
+                            {num}
+                          </span>
+                        </div>
+                        <img
+                          src={`data:${img.mimeType};base64,${img.data}`}
+                          alt={match[1].trim()}
+                          className="w-full rounded-lg"
+                        />
+                      </div>
+                    );
                   }
-                >
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <Badge
-                      variant="outline"
-                      className="gap-1 text-xs bg-background border-green-500/50 text-green-600"
+
+                  // 이미지 미생성 → 플레이스홀더
+                  return (
+                    <div
+                      key={`ph-${i}`}
+                      className="my-4 flex items-center justify-center gap-2 py-6 rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground text-sm"
                     >
-                      <PenLine className="h-3 w-3" />
-                      수정
-                    </Badge>
-                  </div>
+                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted-foreground/20 text-xs font-bold">
+                        {num}
+                      </span>
+                      <span>[이미지: {match[1].trim()}]</span>
+                    </div>
+                  );
+                }
+
+                if (!part.trim()) return null;
+                return (
                   <ReactMarkdown
+                    key={`md-${i}`}
                     remarkPlugins={[remarkGfm]}
                     components={markdownComponents}
                   >
-                    {section.content}
+                    {part}
                   </ReactMarkdown>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents}
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
-          )
+                );
+              });
+            };
+
+            return editMode && onSectionSelect ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                {splitIntoSections(content).map((section) => (
+                  <div
+                    key={section.index}
+                    className="relative group rounded-lg px-2 -mx-2 py-1 transition-all cursor-pointer hover:bg-green-500/5 hover:ring-2 hover:ring-green-500/30"
+                    onClick={() =>
+                      onSectionSelect(
+                        section.index,
+                        section.content,
+                        section.heading
+                      )
+                    }
+                  >
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <Badge
+                        variant="outline"
+                        className="gap-1 text-xs bg-background border-green-500/50 text-green-600"
+                      >
+                        <PenLine className="h-3 w-3" />
+                        수정
+                      </Badge>
+                    </div>
+                    {blogImages && blogImages.length > 0
+                      ? renderContentWithImages(section.content)
+                      : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
+                          {section.content}
+                        </ReactMarkdown>
+                      )
+                    }
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                {blogImages && blogImages.length > 0
+                  ? renderContentWithImages(content)
+                  : (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {content}
+                    </ReactMarkdown>
+                  )
+                }
+              </div>
+            );
+          })()
         ) : (
           <pre className="text-sm whitespace-pre-wrap font-mono">{content}</pre>
         )}
