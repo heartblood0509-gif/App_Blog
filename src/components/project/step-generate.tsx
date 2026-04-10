@@ -236,6 +236,7 @@ export function StepGenerate({
       topic: settings.topic.trim(),
       keywords: settings.keywords.trim(),
       selectedTitle: selectedTitle || undefined,
+      persona: settings.persona.trim() || undefined,
       productName: settings.productName.trim() || undefined,
       productAdvantages: settings.productAdvantages.trim() || undefined,
       productLink: settings.productLink.trim() || undefined,
@@ -331,6 +332,12 @@ export function StepGenerate({
           <span className="font-semibold">{settings.topic}</span>
           <span className="text-muted-foreground">키워드</span>
           <span className="font-semibold">{settings.keywords}</span>
+          {settings.persona && (
+            <>
+              <span className="text-muted-foreground">페르소나</span>
+              <span className="font-semibold truncate">{settings.persona}</span>
+            </>
+          )}
           {settings.productName && (
             <>
               <span className="text-muted-foreground">제품명</span>

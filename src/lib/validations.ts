@@ -23,6 +23,7 @@ export const generateSchema = z.object({
   topic: z.string().min(1, "주제를 입력해주세요."),
   keywords: z.string().min(1, "키워드를 입력해주세요."),
   selectedTitle: z.string().optional(),
+  persona: z.string().optional(),
   productName: z.string().optional(),
   productAdvantages: z.string().optional(),
   productLink: z.string().optional(),

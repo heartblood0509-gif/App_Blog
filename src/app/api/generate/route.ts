@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { analysisResult, topic, keywords, selectedTitle, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc } = parsed.data;
+    const { analysisResult, topic, keywords, selectedTitle, persona, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc } = parsed.data;
 
     const clientApiKey = request.headers.get("x-api-key") || undefined;
     const client = getGeminiClient(clientApiKey);
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       analysisResult,
       topic,
       keywords,
-      { selectedTitle, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc }
+      { selectedTitle, persona, productName, productAdvantages, productLink, requirements, charCountRange, includeImageDesc }
     );
 
     const stream = new ReadableStream({

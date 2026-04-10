@@ -56,6 +56,7 @@ export type CharCountRange =
 export interface GenerationSettings {
   topic: string;
   keywords: string;
+  persona: string;
   productName: string;
   productAdvantages: string;
   productLink: string;
@@ -90,18 +91,22 @@ const CHAR_COUNT_OPTIONS: {
   },
 ];
 
+const PERSONA_PRESETS = [
+  { label: "20대 여성", text: "20대 중반 여성, 뷰티·스킨케어에 관심 많은 직장인" },
+  { label: "30대 직장인 남성", text: "30대 초반 남성 직장인, 실용적인 정보를 중시" },
+  { label: "30대 워킹맘", text: "30대 후반 워킹맘, 육아와 일을 병행하며 효율을 중시" },
+  { label: "40~50대 주부", text: "40대 후반 주부, 건강과 가족 돌봄에 관심" },
+  { label: "대학생", text: "20대 초반 대학생, 가성비를 중시하는 알뜰 소비자" },
+  { label: "자영업자", text: "40대 자영업자, 사업 경험이 풍부하고 현실적인 조언을 중시" },
+  { label: "전문가/의사", text: "해당 분야 10년차 전문가, 권위 있고 신뢰감 있는 어조" },
+];
+
 const REQUIREMENT_SUGGESTIONS = [
   // 말투/톤
   { label: "친근한 말투", text: "친근한 말투로 작성" },
   { label: "전문적인 톤", text: "전문적이고 신뢰감 있는 톤으로 작성" },
   { label: "~요 체", text: "~요 체로 작성" },
   { label: "~다 체", text: "~다 체로 작성" },
-  // 타겟/페르소나
-  { label: "20대 여성 컨셉", text: "글쓴이 컨셉: 20대 여성으로 빙의하여 작성" },
-  { label: "30대 직장인 컨셉", text: "글쓴이 컨셉: 30대 직장인으로 빙의하여 작성" },
-  { label: "육아맘 컨셉", text: "글쓴이 컨셉: 육아맘으로 빙의하여 작성" },
-  { label: "20대 남성 컨셉", text: "글쓴이 컨셉: 20대 남성으로 빙의하여 작성" },
-  { label: "40~50대 컨셉", text: "글쓴이 컨셉: 40~50대 중년으로 빙의하여 작성" },
   // 콘텐츠 스타일
   { label: "경험담 위주", text: "개인 경험담 위주로 작성" },
   { label: "비교 리뷰", text: "다른 제품과 비교하는 리뷰 형식으로 작성" },
@@ -118,7 +123,7 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
   const [presets, setPresets] = useState<ProductPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [showPresetList, setShowPresetList] = useState(false);
-  const [guideOpen, setGuideOpen] = useState<"product" | "topic" | "requirements" | null>(null);
+  const [guideOpen, setGuideOpen] = useState<"product" | "topic" | "persona" | "requirements" | null>(null);
   const presetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -392,6 +397,73 @@ export function StepSettings({ settings, onChange }: StepSettingsProps) {
           />
           <p className="text-sm text-muted-foreground">
             SEO에 포함할 키워드를 쉼표로 구분하여 입력하세요
+          </p>
+        </div>
+
+        {/* Persona */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="persona" className="text-base font-semibold">
+              글쓴이 페르소나
+            </Label>
+            <Guide
+              open={guideOpen === "persona"}
+              onToggle={() =>
+                setGuideOpen(guideOpen === "persona" ? null : "persona")
+              }
+            >
+              <p className="font-semibold text-blue-700 dark:text-blue-300">
+                페르소나란?
+              </p>
+              <p className="text-muted-foreground">
+                &quot;이 글을 쓴 사람이 누구인가&quot;를 설정합니다.
+                AI가 이 사람의 <strong>시선, 경험, 말투, 공감 포인트</strong>로 글 전체를 일관되게 작성합니다.
+              </p>
+              <p className="font-semibold text-blue-700 dark:text-blue-300 pt-1">
+                구체적일수록 좋아요
+              </p>
+              <ul className="text-muted-foreground list-disc pl-4 space-y-1">
+                <li><strong>나이 + 성별 + 직업</strong>이 기본입니다</li>
+                <li>고민 기간, 경험 수준을 추가하면 더 자연스럽습니다</li>
+                <li>비워두면 주제에 맞게 AI가 자동으로 판단합니다</li>
+              </ul>
+              <div className="pt-1 px-3 py-2 bg-white/60 dark:bg-white/5 rounded-md text-muted-foreground">
+                <p className="font-medium pb-1">좋은 예시</p>
+                <p>&#10004; &quot;32살 여성 직장인, 홍조 고민 5년차, 민감성 건성 피부&quot;</p>
+                <p>&#10004; &quot;28살 남성, 헬스 3년차, 보충제에 관심 많음&quot;</p>
+                <p>&#10004; &quot;45살 주부, 아이 둘 엄마, 가성비 육아템 전문&quot;</p>
+                <p className="text-muted-foreground/60 pt-1">&#10008; &quot;여자&quot; (너무 막연함)</p>
+              </div>
+            </Guide>
+          </div>
+          <Input
+            id="persona"
+            placeholder="예: 32살 여성 직장인, 홍조 고민 5년차, 민감성 건성 피부"
+            value={settings.persona}
+            onChange={(e) => update("persona", e.target.value)}
+            className="text-base"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {PERSONA_PRESETS.map((preset) => {
+              const isActive = settings.persona === preset.text;
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    isActive
+                      ? "bg-primary/10 border-primary/50 text-primary"
+                      : "bg-muted/50 border-border hover:border-primary/30 text-muted-foreground"
+                  }`}
+                  onClick={() => update("persona", isActive ? "" : preset.text)}
+                >
+                  {isActive ? "✓ " : ""}{preset.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            빠른 선택 후 직접 수정도 가능합니다. 비워두면 AI가 자동 판단합니다.
           </p>
         </div>
 

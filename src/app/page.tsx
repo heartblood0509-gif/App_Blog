@@ -72,6 +72,7 @@ export default function Home() {
   const [settings, setSettings] = useState<GenerationSettings>({
     topic: "",
     keywords: "",
+    persona: "",
     productName: "",
     productAdvantages: "",
     productLink: "",
@@ -212,6 +213,7 @@ export default function Home() {
                 setSettings({
                   topic: "",
                   keywords: "",
+                  persona: "",
                   productName: "",
                   productAdvantages: "",
                   productLink: "",

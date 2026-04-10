@@ -253,6 +253,7 @@ export function buildGenerationPrompt(
   keywords: string,
   options?: {
     selectedTitle?: string;
+    persona?: string;
     productName?: string;
     productAdvantages?: string;
     productLink?: string;
@@ -292,7 +293,8 @@ ${analysisResult}
 
 ## 작성 요청
 - **주제**: ${topic}
-- **키워드**: ${keywords}
+- **키워드**: ${keywords}${options?.persona ? `
+- **글쓴이 페르소나**: ${options.persona}` : ""}
 ${productSection}
 ${options?.requirements ? `- **추가 요구사항**: ${options.requirements}` : ""}
 
@@ -306,7 +308,14 @@ ${options?.requirements ? `- **추가 요구사항**: ${options.requirements}` :
 - **구어체/문어체 비율**을 레퍼런스와 동일하게 유지하세요
 - **어미 패턴**을 레퍼런스와 동일하게 사용하세요 (예: 레퍼런스가 "~거든요", "~더라고요" 체면 동일한 어미 사용)
 - **문장 길이와 호흡**도 레퍼런스와 비슷하게 맞추세요 (짧고 리듬감 있는 문장 vs 길고 설명적인 문장)
-- 추가 요구사항에 별도의 말투 지정이 있으면 그것을 우선 적용하세요
+- 추가 요구사항에 별도의 말투 지정이 있으면 그것을 우선 적용하세요${options?.persona ? `
+
+### 글쓴이 페르소나 (매우 중요)
+이 글은 **"${options.persona}"**가 직접 쓴 글입니다.
+- 이 사람의 **나이, 성별, 직업, 경험**에 맞는 시선과 관점으로 글 전체를 작성하세요
+- 이 사람이 실제로 겪었을 법한 구체적인 상황, 감정, 에피소드를 만들어내세요
+- 이 사람의 일상 언어, 관심사, 고민이 자연스럽게 녹아들어야 합니다
+- 예를 들어 "32살 여성 직장인, 홍조 고민 5년차"라면: 회사 화장실에서 거울 보며 한숨, 퇴근 후 피부과 예약, 동료의 "얼굴 왜 그래?" 한마디 등` : ""}
 
 **중요: 위 분석 결과의 "📋 서사 유형"을 확인하고, 아래에서 해당 유형의 작성법을 따르세요.**
 
