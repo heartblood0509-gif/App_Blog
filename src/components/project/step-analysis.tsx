@@ -40,7 +40,7 @@ interface UploadedImage {
 }
 
 interface StepAnalysisProps {
-  onComplete: (analysisResult: string, referenceText: string) => void;
+  onComplete: (analysisResult: string, referenceText: string, source?: string) => void;
   mode: AnalysisMode;
   onModeChange: (mode: AnalysisMode) => void;
   contentType?: "blog" | "threads";
@@ -94,7 +94,8 @@ export function StepAnalysis({ onComplete, mode, onModeChange, contentType = "bl
     abortStream,
   } = useStreaming({
     onComplete: (fullText: string) => {
-      onComplete(fullText, referenceText);
+      const source = mode === "image" ? "이미지 분석" : platform ? `${platform} 크롤링` : "직접 입력";
+      onComplete(fullText, referenceText, source);
       toast.success(mode === "image" ? "이미지 분석이 완료되었습니다." : "서사 구조 분석이 완료되었습니다.");
     },
     onError: (msg: string) => {
@@ -168,7 +169,7 @@ export function StepAnalysis({ onComplete, mode, onModeChange, contentType = "bl
       } else {
         onModeChange("template");
       }
-      onComplete(template.analysisResult, "");
+      onComplete(template.analysisResult, "", `템플릿: ${template.name}`);
       toast.success(`"${template.name}" 템플릿이 선택되었습니다.`);
     }
   };
@@ -406,7 +407,7 @@ export function StepAnalysis({ onComplete, mode, onModeChange, contentType = "bl
         {referenceText.trim().length >= 50 && !textConfirmed && !analysisResult && (
           <Button
             size="sm"
-            onClick={() => { setTextConfirmed(true); onModeChange("crawl"); onComplete(referenceText, referenceText); }}
+            onClick={() => { setTextConfirmed(true); onModeChange("crawl"); onComplete(referenceText, referenceText, platform ? `${platform} 크롤링` : "직접 입력"); }}
             className="gap-1.5"
           >
             <Check className="h-3.5 w-3.5" />
@@ -635,7 +636,7 @@ export function StepAnalysis({ onComplete, mode, onModeChange, contentType = "bl
         {isThreads ? (
           <Button
             onClick={() => {
-              onComplete(referenceText, referenceText);
+              onComplete(referenceText, referenceText, platform ? `${platform} 크롤링` : "직접 입력");
               setTextConfirmed(true);
               toast.success("기사 텍스트가 입력되었습니다.");
             }}

@@ -32,6 +32,7 @@ import type { ConvertFormat } from "@/lib/prompts";
 interface StepGenerateProps {
   analysisResult: string;
   referenceText: string;
+  referenceSource?: string;
   settings: GenerationSettings;
   selectedTitle: string;
   onRestart?: () => void;
@@ -80,6 +81,7 @@ const countChars = (text: string) =>
 export function StepGenerate({
   analysisResult,
   referenceText,
+  referenceSource,
   settings,
   selectedTitle,
   onRestart,
@@ -317,6 +319,12 @@ export function StepGenerate({
       {/* Summary of settings */}
       <div className="rounded-md border bg-muted/30 p-5 space-y-2 max-w-lg mx-auto">
         <div className="grid grid-cols-[90px_1fr] gap-1.5 text-base">
+          {referenceSource && (
+            <>
+              <span className="text-muted-foreground">레퍼런스</span>
+              <span className="font-semibold">{referenceSource}</span>
+            </>
+          )}
           <span className="text-muted-foreground">제목</span>
           <span className="font-semibold">{selectedTitle}</span>
           <span className="text-muted-foreground">주제</span>

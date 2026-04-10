@@ -67,6 +67,7 @@ export default function Home() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>(null);
   const [analysisResult, setAnalysisResult] = useState("");
   const [referenceText, setReferenceText] = useState("");
+  const [referenceSource, setReferenceSource] = useState("");
   const [selectedTitle, setSelectedTitle] = useState("");
   const [settings, setSettings] = useState<GenerationSettings>({
     topic: "",
@@ -88,9 +89,10 @@ export default function Home() {
   const steps = contentType === "threads" ? THREADS_STEPS : BLOG_STEPS;
 
   const handleAnalysisComplete = useCallback(
-    (analysis: string, refText: string) => {
+    (analysis: string, refText: string, source?: string) => {
       setAnalysisResult(analysis);
       setReferenceText(refText);
+      if (source) setReferenceSource(source);
       // 템플릿 선택 시 (refText가 비어있음) 자동으로 다음 스텝 이동
       if (analysis && !refText) {
         setTimeout(() => {
@@ -193,6 +195,7 @@ export default function Home() {
             <StepGenerate
               analysisResult={analysisResult}
               referenceText={referenceText}
+              referenceSource={referenceSource}
               settings={settings}
               selectedTitle={selectedTitle}
               onNewTitle={() => {
