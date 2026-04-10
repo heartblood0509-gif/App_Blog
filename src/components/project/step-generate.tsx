@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +22,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { addHistory } from "@/lib/history";
+import { addHistory, updateHistory } from "@/lib/history";
+import { saveImages } from "@/lib/image-store";
 import { replaceSectionContent } from "@/lib/sections";
 import { SectionEditSheet } from "./section-edit-sheet";
 import { BlogImageGenerator, parseImageMarkers } from "./blog-image-generator";
@@ -102,16 +103,27 @@ export function StepGenerate({
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [regenSheetOpen, setRegenSheetOpen] = useState(false);
   const [blogImages, setBlogImages] = useState<BlogImage[]>([]);
+  const [historyId, setHistoryId] = useState<string | null>(null);
+
+  // 이미지 변경 시 IndexedDB에도 저장
+  const handleBlogImagesChange = useCallback((images: BlogImage[]) => {
+    setBlogImages(images);
+    if (historyId && images.length > 0) {
+      saveImages(historyId, images).catch(() => {});
+      updateHistory(historyId, { imageCount: images.length });
+    }
+  }, [historyId]);
 
   const blogStreamCallbacks = useMemo(
     () => ({
       onComplete: (fullText: string) => {
         toast.success("블로그 글 생성이 완료되었습니다.");
-        addHistory({
+        const id = addHistory({
           type: "blog",
           title: selectedTitle || settings.topic.trim(),
           content: fullText,
         });
+        setHistoryId(id);
       },
       onError: (msg: string) => {
         toast.error(msg);
@@ -456,7 +468,7 @@ export function StepGenerate({
           <BlogImageGenerator
             content={displayContent}
             images={blogImages}
-            onImagesChange={setBlogImages}
+            onImagesChange={handleBlogImagesChange}
             title={selectedTitle || settings.topic}
           />
         </>
