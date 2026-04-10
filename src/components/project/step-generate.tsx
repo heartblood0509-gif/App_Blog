@@ -103,16 +103,17 @@ export function StepGenerate({
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [regenSheetOpen, setRegenSheetOpen] = useState(false);
   const [blogImages, setBlogImages] = useState<BlogImage[]>([]);
-  const [historyId, setHistoryId] = useState<string | null>(null);
+  const historyIdRef = useRef<string | null>(null);
 
-  // 이미지 변경 시 IndexedDB에도 저장
+  // 이미지 변경 시 IndexedDB에도 저장 (ref 사용으로 항상 최신 historyId 참조)
   const handleBlogImagesChange = useCallback((images: BlogImage[]) => {
     setBlogImages(images);
-    if (historyId && images.length > 0) {
-      saveImages(historyId, images).catch(() => {});
-      updateHistory(historyId, { imageCount: images.length });
+    const hid = historyIdRef.current;
+    if (hid && images.length > 0) {
+      saveImages(hid, images).catch(() => {});
+      updateHistory(hid, { imageCount: images.length });
     }
-  }, [historyId]);
+  }, []);
 
   const blogStreamCallbacks = useMemo(
     () => ({
@@ -123,7 +124,7 @@ export function StepGenerate({
           title: selectedTitle || settings.topic.trim(),
           content: fullText,
         });
-        setHistoryId(id);
+        historyIdRef.current = id;
       },
       onError: (msg: string) => {
         toast.error(msg);
