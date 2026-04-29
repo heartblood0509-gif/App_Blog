@@ -20,7 +20,24 @@ import {
   SlidersHorizontal,
   Home,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
+
+const PASS2_SENTINEL = "\n\n<<<PASS2>>>\n";
+
+type BlogWarning = {
+  word: string;
+  tier: 1 | 2 | 3;
+  count: number;
+  reason: string;
+  suggestion: string;
+};
+
+type BlogReplace = {
+  from: string;
+  to: string;
+  count: number;
+};
 import { toast } from "sonner";
 import { addHistory, updateHistory } from "@/lib/history";
 import { saveImages } from "@/lib/image-store";
@@ -103,6 +120,10 @@ export function StepGenerate({
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [regenSheetOpen, setRegenSheetOpen] = useState(false);
   const [blogImages, setBlogImages] = useState<BlogImage[]>([]);
+  const [finalBlogContent, setFinalBlogContent] = useState<string | null>(null);
+  const [blogWarnings, setBlogWarnings] = useState<BlogWarning[]>([]);
+  const [blogReplaced, setBlogReplaced] = useState<BlogReplace[]>([]);
+  const [blogPhase, setBlogPhase] = useState<"idle" | "pass1" | "pass2" | "done">("idle");
   const historyIdRef = useRef<string | null>(null);
 
   // 이미지 변경 시 IndexedDB에도 저장 (ref 사용으로 항상 최신 historyId 참조)
@@ -117,16 +138,44 @@ export function StepGenerate({
 
   const blogStreamCallbacks = useMemo(
     () => ({
+      sentinel: PASS2_SENTINEL,
+      onPhaseChange: (phase: "pass1" | "pass2") => {
+        setBlogPhase(phase);
+      },
+      onFinal: (payload: string) => {
+        try {
+          const parsed = JSON.parse(payload);
+          const finalText: string = parsed.text ?? "";
+          setFinalBlogContent(finalText);
+          setBlogWarnings(parsed.warnings ?? []);
+          setBlogReplaced(parsed.replaced ?? []);
+
+          toast.success("블로그 글 생성이 완료되었습니다.");
+          const id = addHistory({
+            type: "blog",
+            title: selectedTitle || settings.topic.trim(),
+            content: finalText,
+          });
+          historyIdRef.current = id;
+        } catch {
+          toast.error("편집 단계 응답 해석 실패. 초안 그대로 유지합니다.");
+        }
+      },
       onComplete: (fullText: string) => {
-        toast.success("블로그 글 생성이 완료되었습니다.");
-        const id = addHistory({
-          type: "blog",
-          title: selectedTitle || settings.topic.trim(),
-          content: fullText,
-        });
-        historyIdRef.current = id;
+        setBlogPhase("done");
+        // sentinel이 없었던 경우(레거시 fallback): 초안 그대로 저장
+        if (!historyIdRef.current && fullText) {
+          const id = addHistory({
+            type: "blog",
+            title: selectedTitle || settings.topic.trim(),
+            content: fullText,
+          });
+          historyIdRef.current = id;
+          toast.success("블로그 글 생성이 완료되었습니다.");
+        }
       },
       onError: (msg: string) => {
+        setBlogPhase("idle");
         toast.error(msg);
       },
     }),
@@ -220,8 +269,9 @@ export function StepGenerate({
     reset: resetEditStream,
   } = useStreaming(editStreamCallbacks);
 
-  // Display content: resized takes priority over original
-  const displayContent = resizedContent || generatedContent;
+  // Display content: resized > pass2 final > pass1 draft
+  const displayContent =
+    resizedContent || finalBlogContent || generatedContent;
   const currentCharCount = displayContent ? countChars(displayContent) : 0;
 
   // Preview content changes during resize streaming (edit streaming shows in sheet, not here)
@@ -243,6 +293,11 @@ export function StepGenerate({
   }, [currentCharCount, isResizing]);
 
   const handleGenerate = () => {
+    setFinalBlogContent(null);
+    setBlogWarnings([]);
+    setBlogReplaced([]);
+    setBlogPhase("pass1");
+    historyIdRef.current = null;
     startBlogStream("/api/generate", {
       analysisResult,
       referenceText: referenceText || "(내장 템플릿 사용)",
@@ -411,7 +466,9 @@ export function StepGenerate({
             </Button>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              AI가 블로그 글을 작성하고 있습니다...
+              {blogPhase === "pass2"
+                ? "편집 중 (이미지 삽입 · 금지어 검사)..."
+                : "AI가 블로그 글을 작성하고 있습니다..."}
             </div>
           </>
         )}
@@ -460,6 +517,65 @@ export function StepGenerate({
             blogImages={blogImages}
           />
         </>
+      )}
+
+      {/* 네이버 금지어 경고/자동치환 배너 */}
+      {displayContent && !isGenerating && (blogWarnings.length > 0 || blogReplaced.length > 0) && (
+        <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex-1 space-y-3 min-w-0">
+              <p className="font-semibold text-sm">
+                네이버 금지어 검사 결과
+              </p>
+
+              {blogReplaced.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    자동 치환됨
+                  </p>
+                  <ul className="text-sm space-y-0.5">
+                    {blogReplaced.map((r, i) => (
+                      <li key={`r-${i}`} className="text-muted-foreground">
+                        <code className="bg-amber-100 dark:bg-amber-900/50 px-1.5 rounded">
+                          {r.from}
+                        </code>
+                        {" → "}
+                        <code className="bg-green-100 dark:bg-green-900/50 px-1.5 rounded">
+                          {r.to}
+                        </code>
+                        <span className="ml-2 text-xs">({r.count}회)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {blogWarnings.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    수동 확인 필요 (자동 치환 시 의미 왜곡 위험)
+                  </p>
+                  <ul className="text-sm space-y-1">
+                    {blogWarnings.map((w, i) => (
+                      <li key={`w-${i}`}>
+                        <code className="bg-amber-100 dark:bg-amber-900/50 px-1.5 rounded font-semibold">
+                          {w.word}
+                        </code>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({w.count}회 · {w.reason})
+                        </span>
+                        <div className="ml-4 text-xs text-muted-foreground">
+                          제안 대체어: {w.suggestion}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* AI 이미지 생성 — 이미지 마커가 있을 때만 표시 */}
